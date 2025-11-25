@@ -7,9 +7,10 @@ all MCP services in a coordinated workflow.
 
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
-# Add app to path
-sys.path.append('.')
+# Add parent directory to path to import app modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.orchestrator.clients import (
     ProductClient,
