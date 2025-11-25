@@ -3,49 +3,53 @@ Pydantic schemas for the strategy service.
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
-from enum import Enum
+from typing import List, Dict, Optional, Union
+import sys
+import os
 
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-class Platform(str, Enum):
-    """Advertising platforms."""
-    FACEBOOK = "facebook"
-    INSTAGRAM = "instagram"
-    GOOGLE_ADS = "google_ads"
-    TIKTOK = "tiktok"
-    LINKEDIN = "linkedin"
-
-
-class BidStrategy(str, Enum):
-    """Bidding strategies."""
-    LOWEST_COST = "lowest_cost"
-    COST_CAP = "cost_cap"
-    BID_CAP = "bid_cap"
-    TARGET_COST = "target_cost"
-
-
-class PlatformStrategy(BaseModel):
-    """Strategy for a specific platform."""
-    platform: Platform = Field(..., description="Advertising platform")
-    budget_allocation: float = Field(..., description="Budget allocated to this platform (percentage)")
-    bid_strategy: BidStrategy = Field(..., description="Bidding strategy")
-    target_cpa: Optional[float] = Field(None, description="Target cost per acquisition")
-    daily_budget: float = Field(..., description="Daily budget for this platform")
-    targeting_criteria: Dict[str, str] = Field(..., description="Platform-specific targeting criteria")
+from app.common.schemas import (
+    CampaignSpec,
+    ProductGroup,
+    Creative,
+    AbstractStrategy,
+    PlatformStrategy,
+    ErrorResponse
+)
 
 
 class GenerateStrategyRequest(BaseModel):
     """Request to generate campaign strategy."""
-    campaign_objective: str = Field(..., description="Campaign objective")
-    total_budget: float = Field(..., description="Total campaign budget")
-    duration_days: int = Field(..., description="Campaign duration in days")
-    target_audience: str = Field(..., description="Target audience description")
-    platforms: List[Platform] = Field(..., description="Platforms to advertise on")
+    # New API format (preferred)
+    campaign_spec: Optional[CampaignSpec] = Field(None, description="Campaign specification")
+    product_groups: Optional[List[ProductGroup]] = Field(None, description="Product groups with priority levels")
+    creatives: Optional[List[Creative]] = Field(None, description="Generated creatives for the campaign")
+    
+    # Legacy API format (for backward compatibility)
+    campaign_objective: Optional[str] = Field(None, description="Campaign objective (legacy)")
+    total_budget: Optional[float] = Field(None, description="Total campaign budget (legacy)")
+    duration_days: Optional[int] = Field(None, description="Campaign duration in days (legacy)")
+    target_audience: Optional[str] = Field(None, description="Target audience description (legacy)")
+    platforms: Optional[List[str]] = Field(None, description="Platforms to advertise on (legacy)")
+    
+    class Config:
+        """Pydantic v2 configuration."""
+        from_attributes = True
 
 
 class GenerateStrategyResponse(BaseModel):
     """Response containing campaign strategy."""
-    abstract_strategy: str = Field(..., description="High-level strategy description")
-    platform_strategies: List[PlatformStrategy] = Field(..., description="Platform-specific strategies")
-    estimated_reach: int = Field(..., description="Estimated total reach")
-    estimated_conversions: int = Field(..., description="Estimated conversions")
+    status: str = Field(..., description="Response status: 'success' or 'error'")
+    abstract_strategy: Optional[AbstractStrategy] = Field(None, description="Abstract campaign strategy")
+    platform_strategies: Optional[List[PlatformStrategy]] = Field(None, description="Platform-specific strategies")
+    debug: Optional[Dict] = Field(None, description="Debug information including budget plan and targeting")
+    
+    # Legacy response fields (for backward compatibility)
+    estimated_reach: Optional[int] = Field(None, description="Estimated total reach (legacy)")
+    estimated_conversions: Optional[int] = Field(None, description="Estimated conversions (legacy)")
+    
+    model_config = {
+        "from_attributes": True
+    }
