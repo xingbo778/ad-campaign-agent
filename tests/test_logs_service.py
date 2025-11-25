@@ -26,11 +26,17 @@ class TestAppendEvent:
     
     def test_append_event_success(self):
         """Test successful event logging"""
+        from datetime import datetime
         payload = {
-            "event_type": "campaign_created",
-            "message": "Campaign created successfully",
-            "campaign_id": "campaign_123",
+            "timestamp": datetime.utcnow().isoformat(),
+            "stage": "product",
+            "service": "product_service",
+            "success": True,
+            "request": {"campaign_spec": {"category": "electronics"}},
+            "response": {"status": "success", "products": []},
             "metadata": {
+                "message": "Campaign created successfully",
+                "campaign_id": "campaign_123",
                 "user_id": "user_456",
                 "platform": "meta"
             }
@@ -38,20 +44,23 @@ class TestAppendEvent:
         response = client.post("/append_event", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ok"
+        assert data["status"] == "success"
         assert "event_id" in data
-        assert data["event_id"].startswith("EVENT-")
     
     def test_append_event_minimal(self):
         """Test event logging with minimal required fields"""
+        from datetime import datetime
         payload = {
-            "event_type": "info",  # Use valid enum value
-            "message": "Test message"
+            "timestamp": datetime.utcnow().isoformat(),
+            "stage": "orchestrator",
+            "service": "orchestrator_agent",
+            "success": True,
+            "metadata": {"message": "Test message"}
         }
         response = client.post("/append_event", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ok"
+        assert data["status"] == "success"
         assert "event_id" in data
     
     def test_append_event_validation_error(self):

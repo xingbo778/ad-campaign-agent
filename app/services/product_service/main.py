@@ -18,7 +18,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from app.common.middleware import setup_logging, RequestIDMiddleware, get_cors_middleware_class, get_logger
 from app.common.config import settings
-from app.common.exceptions import register_exception_handlers, ValidationError, ServiceException
+from app.common.exceptions import register_exception_handlers, ServiceException
+from pydantic import ValidationError as PydanticValidationError
 from app.common.schemas import ErrorResponse
 from app.common.db import init_db, is_db_available
 
@@ -229,8 +230,16 @@ async def select_products(request: SelectProductsRequest) -> Union[SelectProduct
             total_products=total_products
         )
         
-    except ValidationError as e:
-        logger.error(f"Validation error: {e.message}", extra={"error_code": e.error_code})
+    except PydanticValidationError as e:
+        # Let FastAPI handle Pydantic validation errors (returns 422)
+        from fastapi import HTTPException, status
+        logger.warning(f"Pydantic validation error: {e.errors()}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
+    except ServiceException as e:
+        logger.error(f"Service error: {e.error_code} - {e.message}")
         return ErrorResponse(
             status="error",
             error_code=e.error_code,

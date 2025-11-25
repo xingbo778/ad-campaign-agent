@@ -17,7 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from app.common.middleware import setup_logging, RequestIDMiddleware, get_cors_middleware_class, get_logger
 from app.common.config import settings
-from app.common.exceptions import register_exception_handlers, ValidationError, ServiceException
+from app.common.exceptions import register_exception_handlers, ServiceException
+from pydantic import ValidationError as PydanticValidationError
 from app.common.schemas import ErrorResponse
 
 from .schemas import GenerateStrategyRequest, GenerateStrategyResponse
@@ -125,15 +126,36 @@ async def generate_strategy(request: GenerateStrategyRequest) -> Union[GenerateS
                     "end": end_date.isoformat()
                 }
             
-            campaign_spec = CampaignSpec(
-                user_query=request.target_audience or f"Campaign for {request.campaign_objective}",
-                platform=platform,
-                budget=request.total_budget,
-                objective=request.campaign_objective,
-                category="general",
-                time_range=time_range,
-                metadata={}
-            )
+            # Validate objective is valid for CampaignSpec
+            valid_objectives = ["conversions", "sales", "traffic", "leads"]
+            objective = request.campaign_objective
+            if objective not in valid_objectives:
+                # Map common legacy objectives to valid ones
+                objective_map = {
+                    "brand_awareness": "traffic",
+                    "increase sales": "sales",
+                    "generate leads": "leads"
+                }
+                objective = objective_map.get(objective.lower(), "conversions")
+            
+            try:
+                campaign_spec = CampaignSpec(
+                    user_query=request.target_audience or f"Campaign for {request.campaign_objective}",
+                    platform=platform,
+                    budget=request.total_budget,
+                    objective=objective,
+                    category="general",
+                    time_range=time_range,
+                    metadata={}
+                )
+            except PydanticValidationError as e:
+                # If CampaignSpec validation fails, return error
+                from fastapi import HTTPException, status
+                logger.warning(f"CampaignSpec validation error: {e.errors()}")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=e.errors()
+                )
             
             # Create empty product groups and creatives for legacy format
             product_groups = []
@@ -327,8 +349,16 @@ async def generate_strategy(request: GenerateStrategyRequest) -> Union[GenerateS
             estimated_conversions=estimated_conversions
         )
         
-    except ValidationError as e:
-        logger.error(f"Validation error: {e.message}", extra={"error_code": e.error_code})
+    except PydanticValidationError as e:
+        # Let FastAPI handle Pydantic validation errors (returns 422)
+        from fastapi import HTTPException, status
+        logger.warning(f"Pydantic validation error: {e.errors()}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
+    except ServiceException as e:
+        logger.error(f"Service error: {e.error_code} - {e.message}")
         return ErrorResponse(
             status="error",
             error_code=e.error_code,

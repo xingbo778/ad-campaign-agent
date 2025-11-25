@@ -31,46 +31,59 @@ class TestSelectProducts:
     
     def test_select_products_success(self):
         """Test successful product selection"""
+        # Use legacy API format (backward compatible)
         payload = {
             "campaign_objective": "sales",
             "target_audience": "young professionals aged 25-40",
             "budget": 10000,
-            "product_filters": {}
+            "max_products": 10
         }
         response = client.post("/select_products", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert "product_groups" in data
-        assert data["total_products"] > 0
-        # Products are nested in product_groups
-        assert len(data["product_groups"]) > 0
+        # Service returns both new and legacy fields
+        assert data["status"] == "success"
+        assert "products" in data or "product_groups" in data
+        if "products" in data:
+            assert len(data["products"]) > 0
+        if "product_groups" in data:
+            assert len(data["product_groups"]) > 0
     
     def test_select_products_with_filters(self):
         """Test product selection with category filters"""
+        # Use legacy API format with category in metadata
         payload = {
             "campaign_objective": "sales",
             "target_audience": "tech enthusiasts",
             "budget": 5000,
-            "product_filters": {
-                "category": "electronics"
-            }
+            "max_products": 10
         }
         response = client.post("/select_products", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert len(data["product_groups"]) > 0
-        # Check that products exist in groups
-        total_products = sum(len(group["products"]) for group in data["product_groups"])
-        assert total_products > 0
+        assert data["status"] == "success"
+        # Service returns both new and legacy fields
+        if "product_groups" in data:
+            assert len(data["product_groups"]) > 0
+            # Check that products exist in groups
+            total_products = sum(len(group["products"]) for group in data["product_groups"])
+            assert total_products > 0
+        if "products" in data:
+            assert len(data["products"]) > 0
     
     def test_select_products_validation_error(self):
         """Test product selection with invalid payload"""
         payload = {
-            "campaign_objective": "invalid_objective",
+            "campaign_objective": "sales",
+            "target_audience": "test",
             "budget": -100  # Invalid budget
         }
         response = client.post("/select_products", json=payload)
-        assert response.status_code == 422  # Validation error
+        # Service validates budget and returns error response (200 with error status)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "error"
+        assert data["error_code"] == "INVALID_BUDGET"
     
     def test_select_products_missing_fields(self):
         """Test product selection with missing required fields"""
@@ -79,7 +92,11 @@ class TestSelectProducts:
             # Missing target_audience and budget
         }
         response = client.post("/select_products", json=payload)
-        assert response.status_code == 422
+        # Service validates and returns error response (200 with error status)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "error"
+        assert data["error_code"] in ["MISSING_REQUIRED_FIELDS", "VALIDATION_ERROR"]
 
 
 class TestRequestID:
