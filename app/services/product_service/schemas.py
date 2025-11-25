@@ -15,8 +15,19 @@ from app.common.schemas import CampaignSpec, Product, ProductGroup, ErrorRespons
 
 class SelectProductsRequest(BaseModel):
     """Request to select products for ad campaign."""
-    campaign_spec: CampaignSpec = Field(..., description="Campaign specification")
+    # New API format (preferred)
+    campaign_spec: Optional[CampaignSpec] = Field(None, description="Campaign specification")
     limit: Optional[int] = Field(default=10, description="Maximum number of products to select")
+    
+    # Legacy API format (for backward compatibility)
+    campaign_objective: Optional[str] = Field(None, description="Campaign objective (legacy)")
+    target_audience: Optional[str] = Field(None, description="Target audience description (legacy)")
+    budget: Optional[float] = Field(None, description="Campaign budget (legacy)")
+    max_products: Optional[int] = Field(None, description="Maximum number of products (legacy)")
+    
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class SelectProductsResponse(BaseModel):
