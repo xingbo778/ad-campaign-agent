@@ -3,14 +3,8 @@ Client for interacting with the Product Service.
 """
 
 from typing import Dict, Any
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.http_client import MCPClient
-from common.config import settings
+from app.common.http_client import MCPClient
+from app.common.config import settings
 
 
 class ProductClient:
@@ -48,13 +42,16 @@ class ProductClient:
         
         return self.client.post("/select_products", request_data)
     
-    def close(self):
+    def close(self) -> None:
         """Close the client connection."""
         self.client.close()
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = ProductClient()
     try:
         result = client.select_products(
@@ -62,6 +59,6 @@ if __name__ == "__main__":
             target_audience="tech enthusiasts",
             budget=10000.0
         )
-        print("Selected products:", result)
+        logger.info(f"Selected products: {result}")
     finally:
         client.close()

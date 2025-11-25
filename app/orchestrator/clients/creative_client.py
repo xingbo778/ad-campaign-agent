@@ -2,15 +2,9 @@
 Client for interacting with the Creative Service.
 """
 
-from typing import Dict, Any, List
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.http_client import MCPClient
-from common.config import settings
+from typing import Dict, Any, List, Optional
+from app.common.http_client import MCPClient
+from app.common.config import settings
 
 
 class CreativeClient:
@@ -26,7 +20,7 @@ class CreativeClient:
         campaign_objective: str,
         target_audience: str,
         brand_voice: str = "professional",
-        creative_types: List[str] = None
+        creative_types: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Generate creative content for ad campaigns.
@@ -53,13 +47,16 @@ class CreativeClient:
         
         return self.client.post("/generate_creatives", request_data)
     
-    def close(self):
+    def close(self) -> None:
         """Close the client connection."""
         self.client.close()
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = CreativeClient()
     try:
         result = client.generate_creatives(
@@ -67,6 +64,6 @@ if __name__ == "__main__":
             campaign_objective="increase sales",
             target_audience="tech enthusiasts"
         )
-        print("Generated creatives:", result)
+        logger.info(f"Generated creatives: {result}")
     finally:
         client.close()

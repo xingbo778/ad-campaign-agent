@@ -3,14 +3,8 @@ Client for interacting with the Meta Service.
 """
 
 from typing import Dict, Any, List, Optional
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.http_client import MCPClient
-from common.config import settings
+from app.common.http_client import MCPClient
+from app.common.config import settings
 
 
 class MetaClient:
@@ -59,13 +53,16 @@ class MetaClient:
         
         return self.client.post("/create_campaign", request_data)
     
-    def close(self):
+    def close(self) -> None:
         """Close the client connection."""
         self.client.close()
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = MetaClient()
     try:
         result = client.create_campaign(
@@ -83,6 +80,6 @@ if __name__ == "__main__":
             ],
             start_date="2024-01-01T00:00:00Z"
         )
-        print("Created campaign:", result)
+        logger.info(f"Created campaign: {result}")
     finally:
         client.close()

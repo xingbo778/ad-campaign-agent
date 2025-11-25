@@ -307,7 +307,7 @@ def get_products_by_category(category: str) -> List[Product]:
     return load_products(category=category)
 
 
-def reload_products():
+def reload_products() -> None:
     """Force reload products from data source (clears cache)."""
     global _product_cache, _csv_loaded
     _product_cache = []

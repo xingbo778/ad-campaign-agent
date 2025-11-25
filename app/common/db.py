@@ -99,7 +99,7 @@ def init_db(database_url: Optional[str] = None) -> bool:
         return False
 
 
-def get_db():
+def get_db():  # type: ignore
     """
     Get database session.
     

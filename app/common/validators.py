@@ -68,9 +68,11 @@ def validate_data(schema_name: str, data: Dict[str, Any]) -> ValidationResult:
         ValidationResult with validation status and any errors
         
     Example:
+        >>> from app.common.middleware import get_logger
+        >>> logger = get_logger(__name__)
         >>> result = validate_data("campaign_spec", {"platform": "meta", "budget": 1000})
         >>> if result.valid:
-        ...     print("Validation passed")
+        ...     logger.info("Validation passed")
     """
     if schema_name not in SCHEMA_MODELS:
         logger.warning(f"Unknown schema name: {schema_name}")

@@ -16,9 +16,7 @@ app = FastAPI(
 )
 
 # 服务URL配置 - 优先使用环境变量，否则使用本地默认值
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common.config import settings
+from app.common.config import settings
 
 PRODUCT_SERVICE_URL = os.getenv("PRODUCT_SERVICE_URL", settings.PRODUCT_SERVICE_URL)
 CREATIVE_SERVICE_URL = os.getenv("CREATIVE_SERVICE_URL", settings.CREATIVE_SERVICE_URL)

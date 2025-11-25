@@ -3,14 +3,8 @@ Client for interacting with the Strategy Service.
 """
 
 from typing import Dict, Any, List
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.http_client import MCPClient
-from common.config import settings
+from app.common.http_client import MCPClient
+from app.common.config import settings
 
 
 class StrategyClient:
@@ -51,13 +45,16 @@ class StrategyClient:
         
         return self.client.post("/generate_strategy", request_data)
     
-    def close(self):
+    def close(self) -> None:
         """Close the client connection."""
         self.client.close()
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = StrategyClient()
     try:
         result = client.generate_strategy(
@@ -67,6 +64,6 @@ if __name__ == "__main__":
             target_audience="tech enthusiasts",
             platforms=["facebook", "instagram"]
         )
-        print("Generated strategy:", result)
+        logger.info(f"Generated strategy: {result}")
     finally:
         client.close()

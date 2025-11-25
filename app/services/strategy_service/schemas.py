@@ -2,14 +2,8 @@
 Pydantic schemas for the strategy service.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Dict, Optional, Union
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from app.common.schemas import (
     CampaignSpec,
     ProductGroup,
@@ -34,9 +28,7 @@ class GenerateStrategyRequest(BaseModel):
     target_audience: Optional[str] = Field(None, description="Target audience description (legacy)")
     platforms: Optional[List[str]] = Field(None, description="Platforms to advertise on (legacy)")
     
-    class Config:
-        """Pydantic v2 configuration."""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GenerateStrategyResponse(BaseModel):
@@ -50,6 +42,4 @@ class GenerateStrategyResponse(BaseModel):
     estimated_reach: Optional[int] = Field(None, description="Estimated total reach (legacy)")
     estimated_conversions: Optional[int] = Field(None, description="Estimated conversions (legacy)")
     
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = ConfigDict(from_attributes=True)

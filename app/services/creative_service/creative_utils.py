@@ -7,7 +7,6 @@ import yaml
 import logging
 import google.generativeai as genai
 from typing import Dict, Optional, Tuple, List
-import sys
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -15,11 +14,7 @@ from tenacity import (
     retry_if_exception_type,
     RetryError
 )
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.config import settings
+from app.common.config import settings
 
 logger = logging.getLogger(__name__)
 

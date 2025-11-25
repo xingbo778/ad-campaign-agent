@@ -2,15 +2,9 @@
 Pydantic schemas for the creative service.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Dict, Optional
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.schemas import CampaignSpec, Product, Creative, ErrorResponse
+from app.common.schemas import CampaignSpec, Product, Creative, ErrorResponse
 
 
 class GenerateCreativesRequest(BaseModel):
@@ -25,7 +19,7 @@ class GenerateCreativesResponse(BaseModel):
     creatives: List[Creative] = Field(default_factory=list, description="List of generated creative assets")
     debug: Optional[Dict] = Field(None, description="Debug information including prompts and LLM responses")
     
-    model_config = {
-        "from_attributes": True,  # Pydantic v2: Allow creating from ORM objects
-        "arbitrary_types_allowed": False
-    }
+    model_config = ConfigDict(
+        from_attributes=True,  # Pydantic v2: Allow creating from ORM objects
+        arbitrary_types_allowed=False
+    )

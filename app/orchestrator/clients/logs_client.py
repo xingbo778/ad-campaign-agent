@@ -3,14 +3,8 @@ Client for interacting with the Logs Service.
 """
 
 from typing import Dict, Any, Optional
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.http_client import MCPClient
-from common.config import settings
+from app.common.http_client import MCPClient
+from app.common.config import settings
 
 
 class LogsClient:
@@ -51,13 +45,16 @@ class LogsClient:
         
         return self.client.post("/append_event", request_data)
     
-    def close(self):
+    def close(self) -> None:
         """Close the client connection."""
         self.client.close()
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = LogsClient()
     try:
         result = client.append_event(
@@ -65,6 +62,6 @@ if __name__ == "__main__":
             message="Campaign created successfully",
             campaign_id="CAMP-123"
         )
-        print("Event logged:", result)
+        logger.info(f"Event logged: {result}")
     finally:
         client.close()

@@ -2,14 +2,8 @@
 Pydantic schemas for the product service.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Union
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from app.common.schemas import CampaignSpec, Product, ProductGroup, ErrorResponse
 
 
@@ -25,9 +19,7 @@ class SelectProductsRequest(BaseModel):
     budget: Optional[float] = Field(None, description="Campaign budget (legacy)")
     max_products: Optional[int] = Field(None, description="Maximum number of products (legacy)")
     
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SelectProductsResponse(BaseModel):
@@ -41,6 +33,4 @@ class SelectProductsResponse(BaseModel):
     product_groups: Optional[List[ProductGroup]] = Field(None, description="Legacy: Products grouped by priority level")
     total_products: Optional[int] = Field(None, description="Legacy: Total number of products selected")
     
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = ConfigDict(from_attributes=True)

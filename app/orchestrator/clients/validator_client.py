@@ -6,13 +6,7 @@ in-process validation, eliminating the need for a separate HTTP service.
 """
 
 from typing import Dict, Any
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.validators import validate_data, ValidationResult
+from app.common.validators import validate_data, ValidationResult
 
 
 class ValidatorClient:
@@ -45,19 +39,22 @@ class ValidatorClient:
         result = validate_data(schema_name, data)
         return result.to_dict()
     
-    def close(self):
+    def close(self) -> None:
         """Close the client (no-op for local validation)."""
         pass
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = ValidatorClient()
     try:
         result = client.validate(
             schema_name="campaign",
             data={"name": "Test Campaign", "budget": 1000}
         )
-        print("Validation result:", result)
+        logger.info(f"Validation result: {result}")
     finally:
         client.close()

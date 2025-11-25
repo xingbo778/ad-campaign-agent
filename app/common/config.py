@@ -15,6 +15,7 @@ Example for production (.env or environment variables):
 import os
 from typing import Optional
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
@@ -49,11 +50,12 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: Optional[str] = None
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
         # Allow environment variables to override defaults
-        case_sensitive = False
+        case_sensitive=False
+    )
 
 
 # Global settings instance

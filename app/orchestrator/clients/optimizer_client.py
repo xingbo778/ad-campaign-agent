@@ -3,14 +3,8 @@ Client for interacting with the Optimizer Service.
 """
 
 from typing import Dict, Any, List, Optional
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.http_client import MCPClient
-from common.config import settings
+from app.common.http_client import MCPClient
+from app.common.config import settings
 
 
 class OptimizerClient:
@@ -44,16 +38,19 @@ class OptimizerClient:
         
         return self.client.post("/summarize_recent_runs", request_data)
     
-    def close(self):
+    def close(self) -> None:
         """Close the client connection."""
         self.client.close()
 
 
 if __name__ == "__main__":
     # Example usage
+    from app.common.middleware import get_logger
+    logger = get_logger(__name__)
+    
     client = OptimizerClient()
     try:
         result = client.summarize_recent_runs(days=7)
-        print("Optimization summary:", result)
+        logger.info(f"Optimization summary: {result}")
     finally:
         client.close()
