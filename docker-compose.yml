@@ -77,21 +77,6 @@ services:
     networks:
       - ad_campaign_network
 
-  schema_validator_service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: schema_validator_service
-    ports:
-      - "8006:8006"
-    environment:
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    command: python -m app.services.schema_validator_service.main
-    volumes:
-      - ./app:/app/app
-    networks:
-      - ad_campaign_network
-
   optimizer_service:
     build:
       context: .

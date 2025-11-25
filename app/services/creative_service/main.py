@@ -10,20 +10,20 @@ This service generates creative content (text, images) for ad campaigns using:
 """
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import logging
+from typing import Union, Dict, Optional
+from datetime import datetime
 import sys
 import os
-from typing import List, Dict, Union
-import uuid
-from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from app.common.middleware import setup_logging, RequestIDMiddleware, get_cors_middleware_class, get_logger
+from app.common.config import settings
+from app.common.exceptions import register_exception_handlers
+
 from .schemas import GenerateCreativesRequest, GenerateCreativesResponse
-from common.schemas import Creative, ErrorResponse
-from typing import Union
+from app.common.schemas import Creative, ErrorResponse
 from .creative_utils import (
     load_creative_policy,
     build_copy_prompt,
@@ -37,9 +37,9 @@ from .creative_utils import (
     get_policy_for_category
 )
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure unified logging
+setup_logging(level=settings.LOG_LEVEL, service_name="creative_service")
+logger = get_logger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -48,14 +48,13 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add middleware
+app.add_middleware(RequestIDMiddleware)
+cors_middleware = get_cors_middleware_class()
+cors_middleware(app)
+
+# Register exception handlers
+register_exception_handlers(app)
 
 
 @app.get("/health")

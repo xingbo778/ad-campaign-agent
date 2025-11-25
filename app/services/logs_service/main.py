@@ -5,15 +5,22 @@ This service handles logging of all campaign-related events for monitoring and d
 """
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import logging
+import sys
+import os
 import uuid
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from app.common.middleware import setup_logging, RequestIDMiddleware, get_cors_middleware_class, get_logger
+from app.common.config import settings
+from app.common.exceptions import register_exception_handlers
 
 from .schemas import AppendEventRequest, AppendEventResponse
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure unified logging
+setup_logging(level=settings.LOG_LEVEL, service_name="logs_service")
+logger = get_logger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -22,14 +29,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add middleware
+app.add_middleware(RequestIDMiddleware)
+cors_middleware = get_cors_middleware_class()
+cors_middleware(app)
+
+# Register exception handlers
+register_exception_handlers(app)
 
 
 @app.get("/health")
