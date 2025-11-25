@@ -244,11 +244,30 @@ async def generate_strategy(request: GenerateStrategyRequest) -> Union[GenerateS
         
         # Step 6: Generate abstract strategy
         logger.info("Generating abstract strategy")
+        # Calculate variant split from creatives if available
+        if creatives:
+            variant_budgets = {}
+            creative_allocation = budget_plan.get("creative_allocation", {})
+            for creative in creatives:
+                variant_id = creative.variant_id
+                creative_id = creative.creative_id
+                budget = creative_allocation.get(creative_id, 0.0)
+                if variant_id not in variant_budgets:
+                    variant_budgets[variant_id] = 0.0
+                variant_budgets[variant_id] += budget
+            
+            # Add variant split to budget_plan
+            total_variant_budget = sum(variant_budgets.values())
+            if total_variant_budget > 0:
+                budget_plan["variant_split"] = {
+                    variant: budget / total_variant_budget
+                    for variant, budget in variant_budgets.items()
+                }
+        
         abstract_strategy = generate_abstract_strategy(
             campaign_spec=campaign_spec,
             budget_plan=budget_plan,
-            bidding_strategy=bidding_strategy,
-            creatives=creatives
+            bidding_strategy=bidding_strategy
         )
         
         # Step 7: Generate platform strategy
