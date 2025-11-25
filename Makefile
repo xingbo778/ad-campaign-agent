@@ -33,7 +33,9 @@ venv:
 # Installation
 install: venv
 	@echo "Installing dependencies..."
-	./venv/bin/pip install -r requirements.txt
+	@./venv/bin/pip install --upgrade pip
+	@./venv/bin/pip install -r requirements.txt
+	@echo "✅ Dependencies installed successfully"
 
 install-dev: install
 	@echo "Installing development dependencies..."
@@ -46,7 +48,11 @@ setup: venv install
 # Testing
 test:
 	@echo "Running tests..."
-	./venv/bin/pytest tests/ -v
+	@if [ ! -d "venv" ] || [ ! -f "venv/bin/python" ]; then \
+		echo "⚠️  Virtual environment not found. Running 'make install' first..."; \
+		$(MAKE) install; \
+	fi
+	@./venv/bin/python -m pytest tests/ -v
 
 test-coverage:
 	@echo "Running tests with coverage..."
