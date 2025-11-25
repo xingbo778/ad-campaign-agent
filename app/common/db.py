@@ -93,7 +93,7 @@ def init_db(database_url: Optional[str] = None) -> bool:
         return False
 
 
-def get_db() -> Optional[Session]:
+def get_db():
     """
     Get database session.
     
