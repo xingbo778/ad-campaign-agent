@@ -3,43 +3,33 @@ Pydantic schemas for the product service.
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from enum import Enum
+from typing import List, Optional, Dict, Union
+import sys
+import os
 
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-class PriorityLevel(str, Enum):
-    """Product priority levels."""
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-
-class Product(BaseModel):
-    """Individual product model."""
-    product_id: str = Field(..., description="Unique product identifier")
-    name: str = Field(..., description="Product name")
-    description: str = Field(..., description="Product description")
-    price: float = Field(..., description="Product price")
-    category: str = Field(..., description="Product category")
-    image_url: Optional[str] = Field(None, description="Product image URL")
-    stock_quantity: int = Field(..., description="Available stock quantity")
-
-
-class ProductGroup(BaseModel):
-    """Group of products by priority level."""
-    priority: PriorityLevel = Field(..., description="Priority level of this group")
-    products: List[Product] = Field(..., description="List of products in this group")
+from app.common.schemas import CampaignSpec, Product, ProductGroup, ErrorResponse
 
 
 class SelectProductsRequest(BaseModel):
     """Request to select products for ad campaign."""
-    campaign_objective: str = Field(..., description="Campaign objective (e.g., 'increase sales', 'brand awareness')")
-    target_audience: str = Field(..., description="Target audience description")
-    budget: float = Field(..., description="Campaign budget")
-    max_products: int = Field(default=10, description="Maximum number of products to select")
+    campaign_spec: CampaignSpec = Field(..., description="Campaign specification")
+    limit: Optional[int] = Field(default=10, description="Maximum number of products to select")
 
 
 class SelectProductsResponse(BaseModel):
     """Response containing selected products grouped by priority."""
-    product_groups: List[ProductGroup] = Field(..., description="Products grouped by priority level")
-    total_products: int = Field(..., description="Total number of products selected")
+    status: str = Field(..., description="Response status: 'success' or 'error'")
+    products: Optional[List[Product]] = Field(None, description="Selected products (flat list)")
+    groups: Optional[List[ProductGroup]] = Field(None, description="Products grouped by priority level")
+    debug: Optional[Dict] = Field(None, description="Debug information including scoring details")
+    
+    # Legacy fields for backward compatibility
+    product_groups: Optional[List[ProductGroup]] = Field(None, description="Legacy: Products grouped by priority level")
+    total_products: Optional[int] = Field(None, description="Legacy: Total number of products selected")
+    
+    model_config = {
+        "from_attributes": True
+    }
