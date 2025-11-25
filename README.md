@@ -122,7 +122,7 @@ ad-campaign-agent/
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Step 1: Start 7 MCP Services (Ports 8001-8007)        │
+│  Step 1: Start 6 MCP Services (Ports 8001-8005, 8007)  │
 │  make start-services                                     │
 └─────────────────────────────────────────────────────────┘
                         ↓
@@ -142,7 +142,7 @@ ad-campaign-agent/
 
 ### Step 1: Start All MCP Services
 
-Start all 7 microservices using the startup script:
+Start all 6 microservices using the startup script:
 
 ```bash
 make start-services
@@ -243,13 +243,12 @@ make stop-services
 Start each service in a separate terminal:
 
 ```bash
-# Terminal 1-7: Start MCP services
+# Terminal 1-6: Start MCP services
 python -m app.services.product_service.main      # Port 8001
 python -m app.services.creative_service.main    # Port 8002
 python -m app.services.strategy_service.main    # Port 8003
 python -m app.services.meta_service.main        # Port 8004
 python -m app.services.logs_service.main        # Port 8005
-python -m app.services.schema_validator_service.main  # Port 8006
 python -m app.services.optimizer_service.main   # Port 8007
 
 # Terminal 8: Start orchestrator
@@ -279,7 +278,6 @@ curl http://localhost:8002/health  # Creative Service
 curl http://localhost:8003/health  # Strategy Service
 curl http://localhost:8004/health  # Meta Service
 curl http://localhost:8005/health  # Logs Service
-curl http://localhost:8006/health  # Schema Validator Service
 curl http://localhost:8007/health  # Optimizer Service
 
 # Orchestrator Agent
@@ -293,7 +291,7 @@ curl http://localhost:8000/health
 curl http://localhost:8000/services/status | python -m json.tool
 
 # Or manually check all
-for port in 8001 8002 8003 8004 8005 8006 8007 8000; do
+for port in 8001 8002 8003 8004 8005 8007 8000; do
   service=$(curl -s http://localhost:$port/health 2>/dev/null | grep -o '"service":"[^"]*"' | cut -d'"' -f4 || echo "not running")
   printf "Port %d: %s\n" $port "$service"
 done
@@ -330,7 +328,8 @@ print(creatives)
 ### ✅ Implemented
 
 - Complete project structure
-- All 7 MCP microservices with FastAPI
+- All 6 MCP microservices with FastAPI
+- 1 Orchestrator service
 - Pydantic schemas for type safety
 - Mock data generators for all services
 - HTTP client utilities
@@ -369,17 +368,12 @@ Each service contains `TODO` comments indicating where to add real implementatio
    - Integrate with logging platforms (ELK, Datadog)
    - Add search and filtering
 
-6. **Schema Validator Service**:
-   - Define schemas for all data types
-   - Implement custom validation rules
-   - Add detailed error reporting
-
-7. **Optimizer Service**:
+6. **Optimizer Service**:
    - Query analytics database
    - Implement ML-based optimization models
    - Add performance benchmarking
 
-8. **Orchestrator Agent**:
+7. **Orchestrator Agent**:
    - Integrate with Google ADK
    - Implement agent runtime
    - Add error handling and retries
@@ -477,7 +471,6 @@ export CREATIVE_SERVICE_URL=https://creative-service.yourdomain.com
 export STRATEGY_SERVICE_URL=https://strategy-service.yourdomain.com
 export META_SERVICE_URL=https://meta-service.yourdomain.com
 export LOGS_SERVICE_URL=https://logs-service.yourdomain.com
-export VALIDATOR_SERVICE_URL=https://validator-service.yourdomain.com
 export OPTIMIZER_SERVICE_URL=https://optimizer-service.yourdomain.com
 
 # LLM Configuration (optional, for LLM mode)
@@ -579,7 +572,7 @@ echo "GEMINI_API_KEY=your_key_here" >> .env
 
 ```bash
 # Start all services
-make start-services              # Start 7 MCP services
+make start-services              # Start 6 MCP services
 make start-orchestrator          # Start orchestrator (simple mode)
 make start-orchestrator     # Start orchestrator (LLM mode)
 
