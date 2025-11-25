@@ -489,7 +489,6 @@ export GEMINI_MODEL=gemini-2.0-flash-exp
 | `STRATEGY_SERVICE_URL` | `http://localhost:8003` | Strategy service URL |
 | `META_SERVICE_URL` | `http://localhost:8004` | Meta service URL |
 | `LOGS_SERVICE_URL` | `http://localhost:8005` | Logs service URL |
-| `SCHEMA_VALIDATOR_SERVICE_URL` | `http://localhost:8006` | Validator service URL |
 | `OPTIMIZER_SERVICE_URL` | `http://localhost:8007` | Optimizer service URL |
 | `GEMINI_API_KEY` | `None` | Google Gemini API key (for LLM mode) |
 | `GEMINI_MODEL` | `gemini-2.0-flash-exp` | Gemini model name |
