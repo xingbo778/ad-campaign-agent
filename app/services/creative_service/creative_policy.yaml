@@ -1,0 +1,52 @@
+# Creative Policy Configuration
+# Defines style profiles for different product categories and platforms
+
+default:
+  copy_style: "direct_response"
+  visual_style: "clean_product_focus"
+  tone: "professional"
+  headline_style: "benefit_focused"
+  primary_text_length: "medium"  # short, medium, long
+
+toys:
+  copy_style: "playful"
+  visual_style: "colorful_lifestyle"
+  tone: "energetic"
+  headline_style: "question_or_exclamation"
+  primary_text_length: "short"
+
+electronics:
+  copy_style: "technical_benefit"
+  visual_style: "minimalist_tech"
+  tone: "authoritative"
+  headline_style: "feature_focused"
+  primary_text_length: "medium"
+
+fashion:
+  copy_style: "aspirational"
+  visual_style: "lifestyle_editorial"
+  tone: "sophisticated"
+  headline_style: "emotional"
+  primary_text_length: "short"
+
+food:
+  copy_style: "sensory_appeal"
+  visual_style: "appetizing_food_photography"
+  tone: "warm"
+  headline_style: "benefit_focused"
+  primary_text_length: "short"
+
+health:
+  copy_style: "trust_building"
+  visual_style: "clean_medical"
+  tone: "caring"
+  headline_style: "benefit_focused"
+  primary_text_length: "medium"
+
+home:
+  copy_style: "lifestyle_benefit"
+  visual_style: "interior_design"
+  tone: "comfortable"
+  headline_style: "aspirational"
+  primary_text_length: "medium"
+

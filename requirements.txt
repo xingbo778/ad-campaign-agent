@@ -14,6 +14,9 @@ google-generativeai==0.8.3
 # Environment variables
 python-dotenv==1.0.1
 
+# YAML parsing
+pyyaml==6.0.2
+
 # Logging and monitoring
 python-json-logger==2.0.7
 
