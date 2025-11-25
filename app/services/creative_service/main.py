@@ -14,6 +14,7 @@ from typing import Union, Dict, Optional
 from datetime import datetime
 import sys
 import os
+import uuid
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
