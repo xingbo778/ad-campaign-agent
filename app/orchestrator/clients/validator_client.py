@@ -1,5 +1,8 @@
 """
-Client for interacting with the Schema Validator Service.
+Validator client - now uses local validation instead of HTTP service.
+
+This client has been refactored to use app.common.validators for fast,
+in-process validation, eliminating the need for a separate HTTP service.
 """
 
 from typing import Dict, Any
@@ -9,16 +12,20 @@ import os
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from common.http_client import MCPClient
-from common.config import settings
+from common.validators import validate_data, ValidationResult
 
 
 class ValidatorClient:
-    """Client for the Schema Validator Service MCP."""
+    """
+    Validator client using local Pydantic validation.
+    
+    This replaces the HTTP-based schema_validator_service with fast,
+    in-process validation using Pydantic models.
+    """
     
     def __init__(self):
-        """Initialize the validator service client."""
-        self.client = MCPClient(settings.SCHEMA_VALIDATOR_SERVICE_URL)
+        """Initialize the validator client (no HTTP connection needed)."""
+        pass
     
     def validate(
         self,
@@ -26,25 +33,21 @@ class ValidatorClient:
         data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Validate data against a schema.
+        Validate data against a schema using local Pydantic validation.
         
         Args:
             schema_name: Name of the schema to validate against
             data: Data to validate
             
         Returns:
-            Validation result with any errors
+            Validation result dictionary with 'valid' and 'errors' keys
         """
-        request_data = {
-            "schema_name": schema_name,
-            "data": data
-        }
-        
-        return self.client.post("/validate", request_data)
+        result = validate_data(schema_name, data)
+        return result.to_dict()
     
     def close(self):
-        """Close the client connection."""
-        self.client.close()
+        """Close the client (no-op for local validation)."""
+        pass
 
 
 if __name__ == "__main__":

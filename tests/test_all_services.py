@@ -10,7 +10,6 @@ SERVICES = {
     "Strategy Service": "http://localhost:8003",
     "Meta Service": "http://localhost:8004",
     "Logs Service": "http://localhost:8005",
-    "Schema Validator": "http://localhost:8006",
     "Optimizer Service": "http://localhost:8007",
 }
 
@@ -165,28 +164,27 @@ def test_logs_service():
         print(f"  ❌ Error: {str(e)}")
 
 def test_validator_service():
-    """Test Schema Validator Service"""
-    print("\n✔️  Schema Validator Service - /validate")
+    """Test local validation (no longer a service)"""
+    print("\n✔️  Local Validation (app.common.validators)")
     try:
-        payload = {
-            "schema_type": "campaign",
-            "data": {
-                "name": "Test Campaign",
-                "budget": 5000,
-                "duration_days": 30,
-                "objective": "awareness"
-            }
-        }
-        response = requests.post("http://localhost:8006/validate", json=payload, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            print(f"  ✅ Success! Valid: {data['valid']}")
-            if not data['valid']:
-                print(f"  ⚠️  Errors: {data.get('errors', [])}")
-            else:
-                print(f"  📌 Schema validation passed")
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from app.common.validators import validate_data
+        
+        # Test validation
+        result = validate_data("campaign_spec", {
+            "user_query": "Test campaign",
+            "platform": "meta",
+            "budget": 5000,
+            "objective": "conversions",
+            "category": "electronics"
+        })
+        
+        if result.valid:
+            print(f"  ✅ Success! Validation passed")
         else:
-            print(f"  ❌ HTTP {response.status_code}: {response.text}")
+            print(f"  ⚠️  Validation failed: {result.errors}")
     except Exception as e:
         print(f"  ❌ Error: {str(e)}")
 

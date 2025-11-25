@@ -37,9 +37,7 @@ echo "Starting Logs Service on port 8005..."
 python -m app.services.logs_service.main > logs/logs_service.log 2>&1 &
 LOGS_PID=$!
 
-echo "Starting Schema Validator Service on port 8006..."
-python -m app.services.schema_validator_service.main > logs/schema_validator_service.log 2>&1 &
-VALIDATOR_PID=$!
+# Schema Validator Service removed - validation now uses local Pydantic models (app.common.validators)
 
 echo "Starting Optimizer Service on port 8007..."
 python -m app.services.optimizer_service.main > logs/optimizer_service.log 2>&1 &
@@ -51,7 +49,6 @@ echo $CREATIVE_PID >> logs/pids.txt
 echo $STRATEGY_PID >> logs/pids.txt
 echo $META_PID >> logs/pids.txt
 echo $LOGS_PID >> logs/pids.txt
-echo $VALIDATOR_PID >> logs/pids.txt
 echo $OPTIMIZER_PID >> logs/pids.txt
 
 echo ""
@@ -64,8 +61,9 @@ echo "  Creative Service:   http://localhost:8002"
 echo "  Strategy Service:   http://localhost:8003"
 echo "  Meta Service:       http://localhost:8004"
 echo "  Logs Service:       http://localhost:8005"
-echo "  Validator Service:  http://localhost:8006"
 echo "  Optimizer Service:  http://localhost:8007"
+echo ""
+echo "Note: Schema validation now uses local Pydantic models (app.common.validators)"
 echo ""
 echo "To stop all services, run: ./stop_services.sh"
 echo "Logs are available in the logs/ directory"

@@ -201,10 +201,14 @@ def call_gemini_text(prompt: str) -> Optional[str]:
     Returns:
         Generated text or None if error
     """
+    logger.debug(f"call_gemini_text called with prompt length: {len(prompt)}")
+    
     if not gemini_model:
         logger.warning("Gemini model not available, using fallback")
+        logger.debug(f"gemini_model is None. gemini_api_key exists: {gemini_api_key is not None and len(gemini_api_key) > 0}")
         return None
     
+    logger.debug(f"Calling Gemini API with model: {settings.GEMINI_MODEL}")
     try:
         response = gemini_model.generate_content(
             prompt,
@@ -213,9 +217,12 @@ def call_gemini_text(prompt: str) -> Optional[str]:
                 max_output_tokens=500
             )
         )
-        return response.text.strip()
+        result = response.text.strip() if response and response.text else None
+        logger.debug(f"Gemini API call successful, response length: {len(result) if result else 0}")
+        return result
     except Exception as e:
-        logger.error(f"Error calling Gemini API: {e}")
+        logger.error(f"Error calling Gemini API: {e}", exc_info=True)
+        logger.debug(f"Exception type: {type(e).__name__}, Exception message: {str(e)}")
         return None
 
 

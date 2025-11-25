@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import sys
 import os
-from typing import List, Dict
+from typing import List, Dict, Union
 import uuid
 from datetime import datetime
 
@@ -23,6 +23,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from .schemas import GenerateCreativesRequest, GenerateCreativesResponse
 from common.schemas import Creative, ErrorResponse
+from typing import Union
 from .creative_utils import (
     load_creative_policy,
     build_copy_prompt,
@@ -63,8 +64,8 @@ async def health_check():
     return {"status": "healthy", "service": "creative_service"}
 
 
-@app.post("/generate_creatives", response_model=None)
-async def generate_creatives(request: GenerateCreativesRequest):
+@app.post("/generate_creatives", response_model=Union[GenerateCreativesResponse, ErrorResponse])
+async def generate_creatives(request: GenerateCreativesRequest) -> Union[GenerateCreativesResponse, ErrorResponse]:
     """
     Generate creative content for ad campaigns.
     
@@ -101,11 +102,44 @@ async def generate_creatives(request: GenerateCreativesRequest):
         logger.debug(f"Loaded policy with categories: {list(policy.keys())}")
         
         # Step 3: Initialize debug info
+        # Check LLM configuration status
+        import os
+        from app.common.config import settings
+        from app.services.creative_service.creative_utils import gemini_model
+        gemini_api_key = os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY)
+        gemini_model_name = settings.GEMINI_MODEL if gemini_api_key else None
+        gemini_model_initialized = gemini_model is not None
+        
         debug_info = {
+            "llm_config": {
+                "gemini_api_key_set": gemini_api_key is not None and len(gemini_api_key) > 0,
+                "gemini_api_key_length": len(gemini_api_key) if gemini_api_key else 0,
+                "gemini_api_key_preview": f"{gemini_api_key[:10]}..." if gemini_api_key and len(gemini_api_key) > 10 else "not_set",
+                "gemini_model": gemini_model_name,
+                "gemini_model_initialized": gemini_model_initialized,
+                "gemini_image_api_key_set": os.getenv("GEMINI_IMAGE_API_KEY") is not None,
+                "environment_variables": {
+                    "GEMINI_API_KEY_from_env": os.getenv("GEMINI_API_KEY") is not None,
+                    "GEMINI_API_KEY_from_settings": settings.GEMINI_API_KEY is not None if hasattr(settings, 'GEMINI_API_KEY') else False
+                }
+            },
+            "request_info": {
+                "num_products": len(request.products),
+                "platform": request.campaign_spec.platform,
+                "objective": request.campaign_spec.objective,
+                "category": request.campaign_spec.category,
+                "budget": request.campaign_spec.budget
+            },
+            "policy_loaded": {
+                "categories": list(policy.keys()) if policy else [],
+                "default_policy": policy.get("default", {}) if policy else {}
+            },
             "copy_prompts": [],
             "image_prompts": [],
             "raw_llm_responses": [],
-            "qa_results": []
+            "image_generation": [],
+            "qa_results": [],
+            "execution_steps": []
         }
         
         all_creatives: List[Creative] = []
@@ -146,20 +180,52 @@ async def generate_creatives(request: GenerateCreativesRequest):
                     
                     # Step 4b: Call LLM for copy
                     logger.debug(f"Calling LLM for copy generation (variant {variant})")
+                    debug_info["execution_steps"].append({
+                        "step": "call_llm_copy",
+                        "product_id": product.product_id,
+                        "variant": variant,
+                        "prompt_length": len(copy_prompt),
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    
                     copy_response = call_gemini_text(copy_prompt)
+                    copy_llm_success = copy_response is not None and len(copy_response) > 0
+                    
                     debug_info["raw_llm_responses"].append({
                         "product_id": product.product_id,
                         "variant": variant,
                         "type": "copy",
-                        "response": copy_response
+                        "llm_call_success": copy_llm_success,
+                        "response": copy_response,
+                        "response_length": len(copy_response) if copy_response else 0,
+                        "error": None if copy_llm_success else "LLM returned None or empty response"
                     })
                     
                     # Parse copy response
+                    logger.debug(f"Parsing copy response for variant {variant}")
                     headline, primary_text = parse_copy_response(copy_response)
+                    parse_success = headline is not None and primary_text is not None
+                    
+                    debug_info["execution_steps"].append({
+                        "step": "parse_copy_response",
+                        "product_id": product.product_id,
+                        "variant": variant,
+                        "parse_success": parse_success,
+                        "headline": headline,
+                        "primary_text": primary_text[:50] + "..." if primary_text and len(primary_text) > 50 else primary_text,
+                        "timestamp": datetime.now().isoformat()
+                    })
                     
                     # Fallback if LLM failed
                     if not headline or not primary_text:
                         logger.warning(f"LLM copy generation failed for variant {variant}, using fallback")
+                        debug_info["execution_steps"].append({
+                            "step": "fallback_copy",
+                            "product_id": product.product_id,
+                            "variant": variant,
+                            "reason": "LLM response parsing failed or empty",
+                            "timestamp": datetime.now().isoformat()
+                        })
                         headline, primary_text = fallback_text_generation(
                             product,
                             request.campaign_spec,
@@ -168,15 +234,57 @@ async def generate_creatives(request: GenerateCreativesRequest):
                     
                     # Step 4c: Call LLM for image prompt
                     logger.debug(f"Calling LLM for image prompt generation (variant {variant})")
+                    debug_info["execution_steps"].append({
+                        "step": "call_llm_image_prompt",
+                        "product_id": product.product_id,
+                        "variant": variant,
+                        "prompt_length": len(image_prompt_prompt),
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    
                     image_description = call_gemini_text(image_prompt_prompt)
+                    image_description_success = image_description is not None and len(image_description) > 0
+                    
+                    debug_info["raw_llm_responses"].append({
+                        "product_id": product.product_id,
+                        "variant": variant,
+                        "type": "image_prompt",
+                        "llm_call_success": image_description_success,
+                        "response": image_description,
+                        "response_length": len(image_description) if image_description else 0,
+                        "error": None if image_description_success else "LLM returned None or empty response"
+                    })
                     
                     if not image_description:
+                        logger.warning(f"LLM image prompt generation failed for variant {variant}, using fallback")
+                        debug_info["execution_steps"].append({
+                            "step": "fallback_image_prompt",
+                            "product_id": product.product_id,
+                            "variant": variant,
+                            "reason": "LLM returned None or empty response",
+                            "timestamp": datetime.now().isoformat()
+                        })
                         image_description = f"Professional product photography of {product.title}, {get_policy_for_category(product.category, policy).get('visual_style', 'clean')} style"
                     
                     # Step 4d: Optionally call image generator
+                    logger.debug(f"Calling image generator for variant {variant}")
                     image_url = call_gemini_image(image_description)
+                    image_generator_success = image_url is not None and len(image_url) > 0
+                    
                     if not image_url:
+                        logger.debug(f"Image generator returned no URL for variant {variant}, using fallback")
                         image_url = fallback_image_url(product)
+                    
+                    # Record image generation debug info
+                    debug_info["image_generation"].append({
+                        "product_id": product.product_id,
+                        "variant": variant,
+                        "image_prompt_llm_success": image_description_success,
+                        "image_description": image_description,
+                        "image_generator_success": image_generator_success,
+                        "final_image_url": image_url,
+                        "used_fallback": not image_generator_success
+                    })
                     
                     # Step 4e: Assemble Creative object
                     creative = Creative(
@@ -224,6 +332,26 @@ async def generate_creatives(request: GenerateCreativesRequest):
         
         # Step 6: Build response
         logger.info(f"Successfully generated {len(all_creatives)} creatives")
+        
+        # Add summary to debug info
+        debug_info["summary"] = {
+            "total_creatives_generated": len(all_creatives),
+            "total_products_processed": len(request.products),
+            "total_variants_expected": len(request.products) * 2,
+            "llm_available": gemini_api_key is not None and len(gemini_api_key) > 0,
+            "execution_completed": True,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Count LLM call statistics
+        llm_calls = [r for r in debug_info["raw_llm_responses"] if r.get("type") in ["copy", "image_prompt"]]
+        successful_llm_calls = [r for r in llm_calls if r.get("llm_call_success", False)]
+        debug_info["summary"]["llm_call_stats"] = {
+            "total_llm_calls": len(llm_calls),
+            "successful_llm_calls": len(successful_llm_calls),
+            "failed_llm_calls": len(llm_calls) - len(successful_llm_calls),
+            "success_rate": len(successful_llm_calls) / len(llm_calls) if llm_calls else 0
+        }
         
         return GenerateCreativesResponse(
             status="success",

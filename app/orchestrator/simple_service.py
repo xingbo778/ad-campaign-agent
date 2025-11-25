@@ -25,7 +25,7 @@ CREATIVE_SERVICE_URL = os.getenv("CREATIVE_SERVICE_URL", settings.CREATIVE_SERVI
 STRATEGY_SERVICE_URL = os.getenv("STRATEGY_SERVICE_URL", settings.STRATEGY_SERVICE_URL)
 META_SERVICE_URL = os.getenv("META_SERVICE_URL", settings.META_SERVICE_URL)
 LOGS_SERVICE_URL = os.getenv("LOGS_SERVICE_URL", settings.LOGS_SERVICE_URL)
-VALIDATOR_SERVICE_URL = os.getenv("VALIDATOR_SERVICE_URL", settings.SCHEMA_VALIDATOR_SERVICE_URL)
+# VALIDATOR_SERVICE_URL removed - validation now uses local Pydantic models
 OPTIMIZER_SERVICE_URL = os.getenv("OPTIMIZER_SERVICE_URL", settings.OPTIMIZER_SERVICE_URL)
 
 
@@ -88,7 +88,6 @@ async def health_check():
             "strategy_service": STRATEGY_SERVICE_URL,
             "meta_service": META_SERVICE_URL,
             "logs_service": LOGS_SERVICE_URL,
-            "validator_service": VALIDATOR_SERVICE_URL,
             "optimizer_service": OPTIMIZER_SERVICE_URL
         }
     }

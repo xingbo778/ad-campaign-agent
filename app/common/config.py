@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     STRATEGY_SERVICE_URL: str = "http://localhost:8003"
     META_SERVICE_URL: str = "http://localhost:8004"
     LOGS_SERVICE_URL: str = "http://localhost:8005"
-    SCHEMA_VALIDATOR_SERVICE_URL: str = "http://localhost:8006"
+    # SCHEMA_VALIDATOR_SERVICE_URL removed - validation now uses local Pydantic models
+    # See app.common.validators for validation utilities
     OPTIMIZER_SERVICE_URL: str = "http://localhost:8007"
     
     # Orchestrator settings

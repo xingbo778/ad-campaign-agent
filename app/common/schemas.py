@@ -3,7 +3,7 @@ Unified schema module for the Advertising Campaign Agent system.
 
 This module defines all shared data models used across:
 - Orchestrator and its clients
-- All MCP services (product, creative, strategy, meta, optimizer, logs, validator)
+- All MCP services (product, creative, strategy, meta, optimizer, logs)
 
 All models use Pydantic v2 BaseModel for validation and serialization.
 Models are designed for forward compatibility and cross-service consistency.

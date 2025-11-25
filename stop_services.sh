@@ -18,7 +18,7 @@ else
     echo "Attempting to kill by port..."
     
     # Try to kill by port
-    for port in 8001 8002 8003 8004 8005 8006 8007; do
+    for port in 8001 8002 8003 8004 8005 8007; do
         pid=$(lsof -ti:$port)
         if [ ! -z "$pid" ]; then
             echo "Killing process on port $port (PID: $pid)"
