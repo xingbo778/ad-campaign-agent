@@ -180,22 +180,8 @@ def product_group_high():
 @pytest.fixture
 def product_group_medium():
     """Medium priority ProductGroup fixture."""
-    return ProductGroup(
-        group="medium",
-        products=[
-            Product(
-                product_id="PROD-002",
-                title="Bluetooth Speaker",
-                description="Portable wireless speaker",
-                price=79.99,
-                category="electronics",
-                image_url="https://example.com/speaker.jpg",
-                metadata={}
-            )
-        ],
-        score_range=(0.5, 0.8),
-        reasoning="Medium conversion potential"
-    )
+    # Use SAMPLE_PRODUCT_GROUPS_ELECTRONICS[1] to match creatives_multiple_products
+    return SAMPLE_PRODUCT_GROUPS_ELECTRONICS[1]
 
 
 @pytest.fixture
@@ -247,7 +233,7 @@ def creatives_multiple_products():
     return [
         Creative(
             creative_id="CREATIVE-001-A",
-            product_id="PROD-001",
+            product_id="ELEC-001",  # Matches product_group_high
             platform="meta",
             variant_id="A",
             primary_text="Premium headphones",
@@ -256,7 +242,7 @@ def creatives_multiple_products():
         ),
         Creative(
             creative_id="CREATIVE-001-B",
-            product_id="PROD-001",
+            product_id="ELEC-001",  # Matches product_group_high
             platform="meta",
             variant_id="B",
             primary_text="Wireless headphones",
@@ -265,21 +251,39 @@ def creatives_multiple_products():
         ),
         Creative(
             creative_id="CREATIVE-002-A",
-            product_id="PROD-002",
+            product_id="ELEC-002",  # Matches product_group_high
             platform="meta",
             variant_id="A",
-            primary_text="Portable speaker",
-            headline="Bluetooth Speaker",
+            primary_text="Smart watch",
+            headline="Smart Watch Pro",
             image_url="https://example.com/creative2a.jpg"
         ),
         Creative(
             creative_id="CREATIVE-002-B",
-            product_id="PROD-002",
+            product_id="ELEC-002",  # Matches product_group_high
+            platform="meta",
+            variant_id="B",
+            primary_text="Fitness tracker",
+            headline="Advanced Smartwatch",
+            image_url="https://example.com/creative2b.jpg"
+        ),
+        Creative(
+            creative_id="CREATIVE-003-A",
+            product_id="ELEC-003",  # Matches product_group_medium
+            platform="meta",
+            variant_id="A",
+            primary_text="Portable speaker",
+            headline="Bluetooth Speaker",
+            image_url="https://example.com/creative3a.jpg"
+        ),
+        Creative(
+            creative_id="CREATIVE-003-B",
+            product_id="ELEC-003",  # Matches product_group_medium
             platform="meta",
             variant_id="B",
             primary_text="Wireless speaker",
             headline="Portable Audio",
-            image_url="https://example.com/creative2b.jpg"
+            image_url="https://example.com/creative3b.jpg"
         )
     ]
 
