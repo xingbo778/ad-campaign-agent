@@ -32,61 +32,61 @@ from tests.testdata import (
 
 
 # ============================================================================
-# Service TestClient Fixtures
+# Service TestClient Fixtures (Session scope for performance)
 # ============================================================================
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def product_client():
-    """TestClient for product_service."""
+    """TestClient for product_service (session scope for performance)."""
     from app.services.product_service.main import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def creative_client():
-    """TestClient for creative_service."""
+    """TestClient for creative_service (session scope for performance)."""
     from app.services.creative_service.main import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def strategy_client():
-    """TestClient for strategy_service."""
+    """TestClient for strategy_service (session scope for performance)."""
     from app.services.strategy_service.main import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def meta_client():
-    """TestClient for meta_service."""
+    """TestClient for meta_service (session scope for performance)."""
     from app.services.meta_service.main import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def logs_client():
-    """TestClient for logs_service."""
+    """TestClient for logs_service (session scope for performance)."""
     from app.services.logs_service.main import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def optimizer_client():
-    """TestClient for optimizer_service."""
+    """TestClient for optimizer_service (session scope for performance)."""
     from app.services.optimizer_service.main import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def orchestrator_client():
-    """TestClient for orchestrator (simple_service)."""
+    """TestClient for orchestrator (simple_service) (session scope for performance)."""
     from app.orchestrator.simple_service import app
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def llm_orchestrator_client():
-    """TestClient for LLM orchestrator."""
+    """TestClient for LLM orchestrator (session scope for performance)."""
     from app.orchestrator.llm_service import app
     return TestClient(app)
 
@@ -360,30 +360,40 @@ def create_campaign_request(creatives_ab):
 
 
 # ============================================================================
-# Mock Fixtures for External Dependencies
+# Mock Fixtures for External Dependencies (Optimized for Performance)
 # ============================================================================
 
 @pytest.fixture
 def mock_gemini_text():
-    """Mock Gemini text generation API."""
-    with patch('app.services.creative_service.creative_utils.call_gemini_text') as mock:
+    """Mock Gemini text generation API - bypasses retry logic for fast tests."""
+    # Mock the internal function to avoid retry delays
+    with patch('app.services.creative_service.creative_utils._call_gemini_api_internal') as mock_internal, \
+         patch('app.services.creative_service.creative_utils.call_gemini_text') as mock:
+        # Mock internal function to return immediately (bypasses retry)
+        mock_internal.return_value = '{"headline": "Test Headline", "primary_text": "Test primary text content for the ad."}'
+        # Also mock the public function for direct calls
         mock.return_value = '{"headline": "Test Headline", "primary_text": "Test primary text content for the ad."}'
         yield mock
 
 
 @pytest.fixture
 def mock_gemini_image():
-    """Mock Gemini image generation API."""
+    """Mock Gemini image generation API - bypasses retry logic for fast tests."""
     with patch('app.services.creative_service.creative_utils.call_gemini_image') as mock:
+        # Return immediately, no retry delays
         mock.return_value = "https://example.com/generated-image.jpg"
         yield mock
 
 
 @pytest.fixture
 def mock_gemini_failure():
-    """Mock Gemini API failure."""
-    with patch('app.services.creative_service.creative_utils.call_gemini_text') as mock_text, \
+    """Mock Gemini API failure - bypasses retry logic for fast tests."""
+    # Mock internal function to avoid retry delays
+    with patch('app.services.creative_service.creative_utils._call_gemini_api_internal') as mock_internal, \
+         patch('app.services.creative_service.creative_utils.call_gemini_text') as mock_text, \
          patch('app.services.creative_service.creative_utils.call_gemini_image') as mock_image:
+        # Return None immediately, no retry delays
+        mock_internal.return_value = None
         mock_text.return_value = None
         mock_image.return_value = None
         yield mock_text, mock_image
@@ -447,4 +457,3 @@ def disable_external_apis(monkeypatch):
     # Disable Meta API key
     monkeypatch.setenv("META_ACCESS_TOKEN", "")
     yield
-

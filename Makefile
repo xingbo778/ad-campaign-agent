@@ -52,7 +52,20 @@ test:
 		echo "⚠️  Virtual environment not found. Running 'make install' first..."; \
 		$(MAKE) install; \
 	fi
-	@./venv/bin/python -m pytest tests/ -v
+	@./venv/bin/python -m pytest tests/ -v --tb=short --durations=10
+
+test-parallel:
+	@echo "Running tests in parallel (requires pytest-xdist)..."
+	@if [ ! -d "venv" ] || [ ! -f "venv/bin/python" ]; then \
+		echo "⚠️  Virtual environment not found. Running 'make install' first..."; \
+		$(MAKE) install; \
+	fi
+	@./venv/bin/pip install -q pytest-xdist || echo "⚠️  pytest-xdist not installed. Install with: pip install pytest-xdist"
+	@./venv/bin/python -m pytest tests/ -n auto -v --tb=short --durations=10
+
+test-fast:
+	@echo "Running fast tests only..."
+	@./venv/bin/python -m pytest tests/ -m "not slow" -v --tb=short
 
 test-coverage:
 	@echo "Running tests with coverage..."

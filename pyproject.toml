@@ -53,4 +53,11 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+# Performance optimizations
+# Use pytest-xdist for parallel execution: pytest tests/ -n auto
+# Mark slow tests: @pytest.mark.slow
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "fast: marks tests as fast (run with '-m fast')",
+]
 
