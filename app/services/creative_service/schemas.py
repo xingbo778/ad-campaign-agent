@@ -13,6 +13,8 @@ class ABConfig(BaseModel):
     max_creatives: int = Field(default=10, ge=1, le=50, description="Maximum total number of creatives to generate")
     enable_image_generation: bool = Field(default=True, description="Whether to attempt image generation via API")
     enable_video_generation: bool = Field(default=False, description="Whether to attempt video generation from images via Replicate API")
+    enable_storyline_video: bool = Field(default=False, description="Whether to generate multi-segment storyline-based videos (15 seconds)")
+    num_video_segments: int = Field(default=3, ge=1, le=10, description="Number of video segments for storyline videos")
 
 
 class GenerateCreativesRequest(BaseModel):

@@ -33,7 +33,11 @@ from .creative_utils import (
     get_policy_for_category,
     generate_video_description,
     call_replicate_video,
-    fallback_video_url
+    fallback_video_url,
+    generate_storyline,
+    generate_lifestyle_product_image_prompt,
+    generate_video_segments,
+    concatenate_videos
 )
 
 # Configure unified logging
@@ -328,10 +332,98 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
                     
                     # Step 4d-2: Optionally generate video from image
                     video_url = None
+                    storyline = None
+                    product_image_url = None
+                    video_segments = None
+                    final_video_url = None
+                    
+                    enable_storyline_video = ab_config.enable_storyline_video
                     enable_video_generation = ab_config.enable_video_generation
                     
-                    if enable_video_generation and image_url and image_generator_success:
-                        logger.debug(f"Generating video for variant {variant}")
+                    if enable_storyline_video:
+                        # New: Storyline-based multi-segment video generation
+                        logger.info(f"Generating storyline-based video for variant {variant}")
+                        request_id = f"{product.product_id}_{variant}"
+                        
+                        try:
+                            # Step 1: Generate storyline
+                            storyline = generate_storyline(
+                                product_title=product.title,
+                                product_description=product.description,
+                                category=product.category,
+                                platform=request.campaign_spec.platform,
+                                objective=request.campaign_spec.objective,
+                                num_segments=ab_config.num_video_segments,
+                                request_id=request_id
+                            )
+                            
+                            if storyline:
+                                # Step 2: Generate lifestyle product image (with person)
+                                lifestyle_prompt = generate_lifestyle_product_image_prompt(
+                                    product_title=product.title,
+                                    product_description=product.description,
+                                    category=product.category,
+                                    storyline_style=storyline.get('style', 'minimalist_modern'),
+                                    request_id=request_id
+                                )
+                                
+                                product_image_url = call_openai_image(lifestyle_prompt)
+                                
+                                if product_image_url:
+                                    # Step 3: Generate video segments
+                                    video_segments = generate_video_segments(
+                                        image_url=product_image_url,
+                                        storyline=storyline,
+                                        request_id=request_id
+                                    )
+                                    
+                                    # Check if all segments were generated
+                                    if video_segments and all(url is not None for url in video_segments):
+                                        # Step 4: Concatenate videos
+                                        import tempfile
+                                        output_path = tempfile.mktemp(suffix=".mp4")
+                                        
+                                        final_video_path = concatenate_videos(
+                                            video_urls=video_segments,
+                                            output_path=output_path,
+                                            request_id=request_id
+                                        )
+                                        
+                                        if final_video_path:
+                                            # TODO: Upload to cloud storage and get public URL
+                                            # For now, use the first segment URL as placeholder
+                                            final_video_url = video_segments[0]
+                                            logger.info(f"[{request_id}] - Storyline video generation completed!")
+                                        else:
+                                            logger.error(f"[{request_id}] - Failed to concatenate videos")
+                                    else:
+                                        logger.error(f"[{request_id}] - Not all video segments generated successfully")
+                                else:
+                                    logger.error(f"[{request_id}] - Failed to generate product image")
+                            else:
+                                logger.error(f"[{request_id}] - Failed to generate storyline")
+                                
+                        except Exception as e:
+                            logger.error(f"[{request_id}] - Storyline video generation failed: {e}")
+                        
+                        # Use final_video_url as video_url for backward compatibility
+                        video_url = final_video_url
+                        
+                        debug_info["storyline_video_generation"] = debug_info.get("storyline_video_generation", [])
+                        debug_info["storyline_video_generation"].append({
+                            "product_id": product.product_id,
+                            "variant": variant,
+                            "storyline": storyline,
+                            "product_image_url": product_image_url,
+                            "num_segments": len(video_segments) if video_segments else 0,
+                            "video_segments": video_segments,
+                            "final_video_url": final_video_url,
+                            "success": final_video_url is not None
+                        })
+                        
+                    elif enable_video_generation and image_url and image_generator_success:
+                        # Old: Single video generation from image
+                        logger.debug(f"Generating single video for variant {variant}")
                         
                         # Generate video description
                         video_description = generate_video_description(product, request.campaign_spec, variant)
@@ -365,6 +457,11 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
                         headline=headline,
                         image_url=image_url,
                         video_url=video_url,
+                        # Storyline-based video fields
+                        storyline=storyline,
+                        product_image_url=product_image_url,
+                        video_segments=video_segments,
+                        final_video_url=final_video_url,
                         style_profile=get_policy_for_category(product.category, policy),
                         ab_group="control" if variant == "A" else "variant"
                     )

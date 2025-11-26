@@ -765,3 +765,322 @@ def fallback_video_url(product) -> Optional[str]:
     # In production, you might want to use a default product video
     logger.warning(f"Using fallback (no video) for product {product.product_id}")
     return None
+
+
+def generate_storyline(
+    product_title: str,
+    product_description: str,
+    category: str,
+    platform: str,
+    objective: str,
+    num_segments: int = 3,
+    request_id: str = ""
+) -> Optional[Dict]:
+    """
+    Generate a storyline for multi-segment video generation.
+    
+    Args:
+        product_title: Product name
+        product_description: Product description
+        category: Product category
+        platform: Target platform (meta, tiktok, google)
+        objective: Campaign objective
+        num_segments: Number of video segments (default: 3)
+        request_id: Request ID for logging
+        
+    Returns:
+        Storyline dict with theme, style, and segments
+    """
+    logger.info(f"[{request_id}] - Generating {num_segments}-segment storyline for {product_title}")
+    
+    prompt = f"""Create a {num_segments}-segment video storyline for {product_title}.
+
+Product: {product_description}
+Category: {category}
+Platform: {platform}
+
+Create {num_segments} segments (5 seconds each):
+- Segment 1: Product close-up
+- Segment 2: Person using product
+- Segment 3: Benefits and CTA
+
+Return valid JSON only (no markdown, no explanations):
+{{
+  "theme": "string",
+  "style": "minimalist_modern",
+  "total_duration": {num_segments * 5},
+  "num_segments": {num_segments},
+  "segments": [
+    {{
+      "segment_id": 1,
+      "duration": 5,
+      "scene_description": "string",
+      "camera_movement": "slow_zoom_in",
+      "focus": "product_detail",
+      "text_overlay": "string",
+      "video_prompt": "string"
+    }}
+  ]
+}}"""
+
+    try:
+        # Use call_gemini_text with JSON Mode enabled
+        response_schema = {
+            "type": "object",
+            "properties": {
+                "theme": {"type": "string"},
+                "style": {"type": "string"},
+                "total_duration": {"type": "integer"},
+                "num_segments": {"type": "integer"},
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "segment_id": {"type": "integer"},
+                            "duration": {"type": "integer"},
+                            "scene_description": {"type": "string"},
+                            "camera_movement": {"type": "string"},
+                            "focus": {"type": "string"},
+                            "text_overlay": {"type": "string"},
+                            "video_prompt": {"type": "string"}
+                        }
+                    }
+                }
+            }
+        }
+        
+        response = call_gemini_text(prompt, response_schema=response_schema)
+        if response:
+            storyline = json.loads(response)
+            logger.info(f"[{request_id}] - Storyline generated successfully")
+            return storyline
+        
+        logger.error(f"[{request_id}] - No LLM available for storyline generation")
+        return None
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"[{request_id}] - Failed to parse storyline JSON: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"[{request_id}] - Error generating storyline: {e}")
+        return None
+
+
+def generate_lifestyle_product_image_prompt(
+    product_title: str,
+    product_description: str,
+    category: str,
+    storyline_style: str,
+    request_id: str = ""
+) -> str:
+    """
+    Generate DALL-E prompt for lifestyle product image (with person using product).
+    
+    Args:
+        product_title: Product name
+        product_description: Product description
+        category: Product category
+        storyline_style: Visual style from storyline
+        request_id: Request ID for logging
+        
+    Returns:
+        DALL-E prompt string
+    """
+    # Determine usage scenario based on category
+    usage_scenarios = {
+        "electronics": "modern workspace or home office",
+        "fashion": "urban street or cafe setting",
+        "health": "gym or outdoor fitness setting",
+        "home": "cozy living room or bedroom",
+        "toys": "playful indoor setting with natural light"
+    }
+    
+    scenario = usage_scenarios.get(category, "modern lifestyle setting")
+    
+    prompt = f"""Professional lifestyle product photography featuring {product_title}.
+
+Scene: A person using/wearing the product in a {scenario}.
+
+Product Details:
+{product_description}
+
+Requirements:
+- Product clearly visible and in focus
+- Person appears natural, relatable, and engaged with the product
+- Clean, professional composition
+- {storyline_style} visual style
+- Soft, natural lighting
+- High detail on both product and person
+- Suitable for video animation (stable, clear image)
+- No text, logos, or overlays
+- Product should maintain consistent appearance for video generation
+
+Mood: Professional, aspirational, authentic
+Lighting: Soft natural light, slightly diffused
+Composition: Medium shot showing person and product clearly"""
+
+    logger.info(f"[{request_id}] - Generated lifestyle product image prompt")
+    return prompt
+
+
+def download_video(url: str, output_path: str) -> bool:
+    """
+    Download video from URL to local file.
+    
+    Args:
+        url: Video URL
+        output_path: Local file path to save video
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    import requests
+    
+    try:
+        response = requests.get(url, stream=True, timeout=60)
+        response.raise_for_status()
+        
+        with open(output_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        
+        logger.info(f"Downloaded video to {output_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to download video from {url}: {e}")
+        return False
+
+
+def concatenate_videos(video_urls: List[str], output_path: str, request_id: str = "") -> Optional[str]:
+    """
+    Concatenate multiple videos into one using FFmpeg.
+    
+    Args:
+        video_urls: List of video URLs to concatenate
+        output_path: Output file path
+        request_id: Request ID for logging
+        
+    Returns:
+        Output file path if successful, None otherwise
+    """
+    import subprocess
+    import tempfile
+    import os
+    
+    logger.info(f"[{request_id}] - Concatenating {len(video_urls)} video segments")
+    
+    try:
+        # Create temporary directory for downloaded videos
+        temp_dir = tempfile.mkdtemp()
+        video_files = []
+        
+        # Download all videos
+        for i, url in enumerate(video_urls):
+            video_file = os.path.join(temp_dir, f"segment_{i}.mp4")
+            if download_video(url, video_file):
+                video_files.append(video_file)
+            else:
+                logger.error(f"[{request_id}] - Failed to download segment {i}")
+                return None
+        
+        if len(video_files) != len(video_urls):
+            logger.error(f"[{request_id}] - Not all videos downloaded successfully")
+            return None
+        
+        # Create concat file for FFmpeg
+        concat_file = os.path.join(temp_dir, "concat_list.txt")
+        with open(concat_file, "w") as f:
+            for video_file in video_files:
+                f.write(f"file '{video_file}'\n")
+        
+        # Run FFmpeg to concatenate videos
+        cmd = [
+            "ffmpeg",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", concat_file,
+            "-c", "copy",
+            "-y",  # Overwrite output file
+            output_path
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"[{request_id}] - FFmpeg error: {result.stderr}")
+            return None
+        
+        logger.info(f"[{request_id}] - Videos concatenated successfully: {output_path}")
+        
+        # Clean up temporary files
+        for video_file in video_files:
+            try:
+                os.remove(video_file)
+            except:
+                pass
+        try:
+            os.remove(concat_file)
+            os.rmdir(temp_dir)
+        except:
+            pass
+        
+        return output_path
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] - Error concatenating videos: {e}")
+        return None
+
+
+def generate_video_segments(
+    image_url: str,
+    storyline: Dict,
+    request_id: str = ""
+) -> List[Optional[str]]:
+    """
+    Generate multiple video segments based on storyline.
+    
+    Args:
+        image_url: Product image URL (with person using it)
+        storyline: Storyline dict with segments
+        request_id: Request ID for logging
+        
+    Returns:
+        List of video URLs (one per segment)
+    """
+    logger.info(f"[{request_id}] - Generating {len(storyline['segments'])} video segments")
+    
+    video_urls = []
+    
+    for segment in storyline['segments']:
+        segment_id = segment['segment_id']
+        video_prompt = segment['video_prompt']
+        
+        logger.info(f"[{request_id}] - Generating segment {segment_id}")
+        logger.info(f"[{request_id}] - Video prompt: {video_prompt}")
+        
+        try:
+            video_url = call_replicate_video(image_url, video_prompt)
+            video_urls.append(video_url)
+            
+            if video_url:
+                logger.info(f"[{request_id}] - Segment {segment_id} generated successfully")
+            else:
+                logger.error(f"[{request_id}] - Segment {segment_id} generation failed")
+                
+        except Exception as e:
+            logger.error(f"[{request_id}] - Error generating segment {segment_id}: {e}")
+            video_urls.append(None)
+    
+    # Check if all segments were generated successfully
+    successful_count = sum(1 for url in video_urls if url is not None)
+    logger.info(f"[{request_id}] - Generated {successful_count}/{len(video_urls)} segments successfully")
+    
+    return video_urls

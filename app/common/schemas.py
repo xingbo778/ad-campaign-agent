@@ -77,6 +77,34 @@ class ProductGroup(BaseModel):
     reasoning: Optional[str] = Field(None, description="Reasoning for grouping these products")
 
 
+class VideoSegment(BaseModel):
+    """
+    Video segment model for storyline-based video generation.
+    
+    Each segment represents a 5-second part of the final video.
+    """
+    segment_id: int = Field(..., description="Segment number (1, 2, 3, ...)")
+    duration: int = Field(5, description="Duration in seconds")
+    scene_description: str = Field(..., description="Detailed description of the scene")
+    camera_movement: str = Field(..., description="Camera movement type (e.g., 'zoom_in', 'pan_left')")
+    focus: str = Field(..., description="What the segment focuses on (e.g., 'product_detail', 'user_experience')")
+    text_overlay: Optional[str] = Field(None, description="Text to overlay on the video")
+    video_prompt: str = Field(..., description="Prompt for video generation API")
+
+
+class Storyline(BaseModel):
+    """
+    Storyline model for multi-segment video generation.
+    
+    Defines the narrative structure and visual flow of the advertisement video.
+    """
+    theme: str = Field(..., description="Overall theme of the video")
+    style: str = Field(..., description="Visual style (e.g., 'minimalist_modern', 'lifestyle')")
+    total_duration: int = Field(15, description="Total video duration in seconds")
+    num_segments: int = Field(3, description="Number of video segments")
+    segments: List[VideoSegment] = Field(..., description="List of video segments")
+
+
 class Creative(BaseModel):
     """
     Creative asset model for advertising content.
@@ -99,6 +127,12 @@ class Creative(BaseModel):
     headline: Optional[str] = Field(None, description="Creative headline")
     image_url: Optional[str] = Field(None, description="URL to creative image asset")
     video_url: Optional[str] = Field(None, description="URL to creative video asset (generated from image)")
+    
+    # Storyline-based video generation fields
+    storyline: Optional[Storyline] = Field(None, description="Video storyline for multi-segment generation")
+    product_image_url: Optional[str] = Field(None, description="Product image with person using it (for video generation)")
+    video_segments: Optional[List[str]] = Field(None, description="List of video segment URLs before concatenation")
+    final_video_url: Optional[str] = Field(None, description="Final concatenated video URL (15 seconds)")
     style_profile: Optional[Dict] = Field(None, description="Style profile from creative_policy.yaml")
     ab_group: Optional[str] = Field(None, description="A/B test group: 'control' or 'variant'")
 
