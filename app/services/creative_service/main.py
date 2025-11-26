@@ -108,10 +108,12 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
         # Check LLM configuration status
         import os
         from app.common.config import settings
-        from app.services.creative_service.creative_utils import gemini_model
+        from app.services.creative_service.creative_utils import gemini_model, gemini_image_model
         gemini_api_key = os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY)
         gemini_model_name = settings.GEMINI_MODEL if gemini_api_key else None
+        gemini_image_model_name = getattr(settings, 'GEMINI_IMAGE_MODEL', None) if gemini_api_key else None
         gemini_model_initialized = gemini_model is not None
+        gemini_image_model_initialized = gemini_image_model is not None
         
         debug_info = {
             "llm_config": {
@@ -120,6 +122,8 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
                 "gemini_api_key_preview": f"{gemini_api_key[:10]}..." if gemini_api_key and len(gemini_api_key) > 10 else "not_set",
                 "gemini_model": gemini_model_name,
                 "gemini_model_initialized": gemini_model_initialized,
+                "gemini_image_model": gemini_image_model_name,
+                "gemini_image_model_initialized": gemini_image_model_initialized,
                 "gemini_image_api_key_set": os.getenv("GEMINI_IMAGE_API_KEY") is not None,
                 "environment_variables": {
                     "GEMINI_API_KEY_from_env": os.getenv("GEMINI_API_KEY") is not None,

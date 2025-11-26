@@ -38,6 +38,7 @@ OPTIMIZER_SERVICE_URL = os.getenv("OPTIMIZER_SERVICE_URL", settings.OPTIMIZER_SE
 gemini_api_key = os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY)
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
+    # Use text model (gemini-2.0-flash-lite) for orchestrator LLM
     gemini_model = genai.GenerativeModel(settings.GEMINI_MODEL)
 else:
     gemini_model = None

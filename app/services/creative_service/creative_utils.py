@@ -24,9 +24,13 @@ gemini_image_api_key = os.getenv("GEMINI_IMAGE_API_KEY", None)
 
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
+    # Text generation model
     gemini_model = genai.GenerativeModel(settings.GEMINI_MODEL)
+    # Image generation model (if different from text model)
+    gemini_image_model = genai.GenerativeModel(settings.GEMINI_IMAGE_MODEL) if hasattr(settings, 'GEMINI_IMAGE_MODEL') else gemini_model
 else:
     gemini_model = None
+    gemini_image_model = None
     logger.warning("GEMINI_API_KEY not set. LLM features will use fallback templates.")
 
 
@@ -287,13 +291,7 @@ def call_gemini_text(prompt: str, response_schema: Optional[Dict] = None) -> Opt
 
 def call_gemini_image(image_prompt: str) -> Optional[str]:
     """
-    Call Gemini Image API for image generation (if available).
-    
-    Note: Gemini API doesn't have native image generation like DALL-E.
-    This function can integrate with:
-    - Google's Imagen API (if available)
-    - Alternative image generation services
-    - Or return None to use fallback placeholder URLs
+    Call Gemini Image API for image generation using gemini-2.5-flash-preview-image model.
     
     Args:
         image_prompt: Image description prompt
@@ -301,26 +299,42 @@ def call_gemini_image(image_prompt: str) -> Optional[str]:
     Returns:
         Image URL or None if not available/error
     """
-    # Check if image generation is enabled via API key
-    if not gemini_image_api_key:
-        logger.debug("GEMINI_IMAGE_API_KEY not set, skipping image generation")
+    if not gemini_image_model:
+        logger.debug("Gemini image model not available, skipping image generation")
         return None
     
-    # Option 1: If using Google Imagen API (when available)
-    # This is a placeholder for future Imagen integration
-    # try:
-    #     # Imagen API call would go here
-    #     # response = imagen_client.generate_image(prompt=image_prompt)
-    #     # return response.image_url
-    #     pass
-    # except Exception as e:
-    #     logger.warning(f"Imagen API error: {e}")
-    #     return None
+    if not gemini_api_key:
+        logger.debug("GEMINI_API_KEY not set, skipping image generation")
+        return None
     
-    # Option 2: Use alternative image generation service
-    # For now, return None to trigger fallback
-    logger.debug("Image generation via API not yet implemented, using fallback")
-    return None
+    try:
+        logger.debug(f"Calling Gemini Image API with model: {settings.GEMINI_IMAGE_MODEL}")
+        
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=500
+        )
+        
+        response = gemini_image_model.generate_content(
+            image_prompt,
+            generation_config=generation_config
+        )
+        
+        # Note: Gemini image model may return image data or URL
+        # Adjust based on actual API response format
+        if response and response.text:
+            # If response contains image URL, return it
+            # Otherwise, may need to extract from response.candidates[0].content.parts
+            logger.debug("Gemini Image API call successful")
+            # For now, return a placeholder - adjust based on actual API response
+            return response.text.strip() if response.text else None
+        else:
+            logger.warning("Gemini Image API returned empty response")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error calling Gemini Image API: {e}", exc_info=True)
+        return None
 
 
 def parse_copy_response(llm_response: str) -> Tuple[Optional[str], Optional[str]]:

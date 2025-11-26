@@ -17,6 +17,7 @@ app = FastAPI(
 
 # 服务URL配置 - 优先使用环境变量，否则使用本地默认值
 from app.common.config import settings
+from app.common.schemas import CampaignSpec, Product
 
 PRODUCT_SERVICE_URL = os.getenv("PRODUCT_SERVICE_URL", settings.PRODUCT_SERVICE_URL)
 CREATIVE_SERVICE_URL = os.getenv("CREATIVE_SERVICE_URL", settings.CREATIVE_SERVICE_URL)
@@ -106,14 +107,52 @@ async def create_campaign(request: CampaignRequest):
     workflow_steps = []
     
     try:
+        # Convert CampaignRequest to CampaignSpec
+        # Map platform from list to single platform (use first platform or default to "meta")
+        platform = "meta"
+        if request.platforms:
+            platform_map = {
+                "facebook": "meta",
+                "instagram": "meta",
+                "meta": "meta",
+                "tiktok": "tiktok",
+                "google": "google"
+            }
+            # Use first platform, default to meta if not recognized
+            platform = platform_map.get(request.platforms[0].lower(), "meta")
+        
+        # Map objective to standard format
+        objective_map = {
+            "sales": "sales",
+            "brand_awareness": "traffic",
+            "conversions": "conversions",
+            "traffic": "traffic",
+            "leads": "leads"
+        }
+        objective = objective_map.get(request.campaign_objective.lower(), "conversions")
+        
+        # Create CampaignSpec
+        campaign_spec = CampaignSpec(
+            user_query=f"Campaign for {request.target_audience} with objective {request.campaign_objective}",
+            platform=platform,
+            budget=request.budget,
+            objective=objective,
+            category=request.product_category or "general",
+            time_range=None,
+            metadata={
+                "duration_days": request.duration_days,
+                "original_objective": request.campaign_objective,
+                "target_audience": request.target_audience,
+                "platforms": request.platforms
+            }
+        )
+        
         # Step 1: 选择产品
         workflow_steps.append({"step": 1, "action": "Selecting products", "status": "in_progress"})
         
         product_request = {
-            "campaign_objective": request.campaign_objective,
-            "target_audience": request.target_audience,
-            "budget": request.budget,
-            "product_filters": {"category": request.product_category} if request.product_category else {}
+            "campaign_spec": campaign_spec.model_dump(),
+            "limit": 10
         }
         
         response = requests.post(
@@ -123,7 +162,16 @@ async def create_campaign(request: CampaignRequest):
         )
         response.raise_for_status()
         products_response = response.json()
-        selected_products = products_response.get("products", [])
+        
+        # Extract products from response (could be in products or groups)
+        selected_products = []
+        if "products" in products_response:
+            selected_products = products_response["products"]
+        elif "groups" in products_response:
+            # Flatten products from groups
+            for group in products_response["groups"]:
+                if "products" in group:
+                    selected_products.extend(group["products"])
         
         workflow_steps[-1]["status"] = "completed"
         workflow_steps[-1]["result"] = f"Selected {len(selected_products)} products"
@@ -132,11 +180,7 @@ async def create_campaign(request: CampaignRequest):
         workflow_steps.append({"step": 2, "action": "Generating strategy", "status": "in_progress"})
         
         strategy_request = {
-            "campaign_objective": request.campaign_objective,
-            "total_budget": request.budget,
-            "duration_days": request.duration_days,
-            "target_audience": request.target_audience,
-            "platforms": request.platforms
+            "campaign_spec": campaign_spec.model_dump()
         }
         
         response = requests.post(
@@ -153,13 +197,33 @@ async def create_campaign(request: CampaignRequest):
         # Step 3: 生成创意
         workflow_steps.append({"step": 3, "action": "Generating creatives", "status": "in_progress"})
         
-        product_ids = [p["product_id"] for p in selected_products[:3]]  # 取前3个产品
+        # Convert selected_products to Product objects (take first 3)
+        products_for_creatives = []
+        for p in selected_products[:3]:
+            if isinstance(p, dict):
+                # Ensure all required fields are present
+                product = Product(
+                    product_id=p.get("product_id", ""),
+                    title=p.get("title", ""),
+                    description=p.get("description", ""),
+                    price=p.get("price", 0.0),
+                    category=p.get("category", campaign_spec.category),
+                    image_url=p.get("image_url"),
+                    metadata=p.get("metadata", {})
+                )
+                products_for_creatives.append(product)
+            else:
+                # Already a Product object
+                products_for_creatives.append(p)
         
         creative_request = {
-            "product_ids": product_ids,
-            "campaign_objective": request.campaign_objective,
-            "target_audience": request.target_audience,
-            "brand_guidelines": {"tone": "professional", "style": "modern"}
+            "campaign_spec": campaign_spec.model_dump(),
+            "products": [p.model_dump() for p in products_for_creatives],
+            "ab_config": {
+                "variants_per_product": 2,
+                "max_creatives": 10,
+                "enable_image_generation": True
+            }
         }
         
         response = requests.post(
@@ -291,7 +355,6 @@ async def check_services_status():
         "strategy_service": STRATEGY_SERVICE_URL,
         "meta_service": META_SERVICE_URL,
         "logs_service": LOGS_SERVICE_URL,
-        "validator_service": VALIDATOR_SERVICE_URL,
         "optimizer_service": OPTIMIZER_SERVICE_URL,
     }
     

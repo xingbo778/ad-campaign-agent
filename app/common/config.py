@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     
     # Orchestrator settings
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.0-flash-exp"
+    GEMINI_MODEL: str = "gemini-2.0-flash-lite"  # Text generation model
+    GEMINI_IMAGE_MODEL: str = "gemini-3-pro-image-preview"  # Image generation model
     
     # General settings
     LOG_LEVEL: str = "INFO"
