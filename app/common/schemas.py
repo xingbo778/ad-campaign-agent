@@ -98,6 +98,7 @@ class Creative(BaseModel):
     primary_text: str = Field(..., description="Primary text content for the creative")
     headline: Optional[str] = Field(None, description="Creative headline")
     image_url: Optional[str] = Field(None, description="URL to creative image asset")
+    video_url: Optional[str] = Field(None, description="URL to creative video asset (generated from image)")
     style_profile: Optional[Dict] = Field(None, description="Style profile from creative_policy.yaml")
     ab_group: Optional[str] = Field(None, description="A/B test group: 'control' or 'variant'")
 

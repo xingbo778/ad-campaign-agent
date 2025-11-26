@@ -8,6 +8,7 @@ import logging
 import json
 import google.generativeai as genai
 from openai import OpenAI
+import replicate
 from typing import Dict, Optional, Tuple, List
 from tenacity import (
     retry,
@@ -26,6 +27,7 @@ openai_client = None
 openai_image_client = None  # Separate client for DALL-E (uses native OpenAI API)
 gemini_model = None
 gemini_image_model = None
+replicate_client = None  # For video generation
 
 # Get API keys from environment
 openai_api_key = os.getenv("OPENAI_API_KEY", None)
@@ -63,6 +65,19 @@ if not openai_client:
         gemini_image_model = genai.GenerativeModel(settings.GEMINI_IMAGE_MODEL) if hasattr(settings, 'GEMINI_IMAGE_MODEL') else gemini_model
     else:
         logger.warning("Neither OPENAI_API_KEY nor GEMINI_API_KEY set. LLM features will use fallback templates.")
+
+# Initialize Replicate client for video generation
+replicate_api_token = os.getenv("REPLICATE_API_TOKEN", settings.REPLICATE_API_TOKEN)
+if replicate_api_token:
+    try:
+        os.environ["REPLICATE_API_TOKEN"] = replicate_api_token
+        replicate_client = replicate.Client(api_token=replicate_api_token)
+        logger.info("Replicate client initialized successfully (video generation)")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Replicate client: {e}")
+        replicate_client = None
+else:
+    logger.warning("REPLICATE_API_TOKEN not set. Video generation will be disabled.")
 
 
 def load_creative_policy() -> Dict:
@@ -628,3 +643,125 @@ def fallback_image_url(product) -> str:
     # Use picsum.photos with seed for deterministic images
     return f"https://picsum.photos/seed/{product_hash}/1200/630"
 
+
+def generate_video_description(product, campaign_spec, variant: str = "A") -> str:
+    """
+    Generate AI-powered video description/prompt for video generation.
+    
+    Args:
+        product: Product object with details
+        campaign_spec: Campaign specification
+        variant: Creative variant (A or B)
+        
+    Returns:
+        Video description/prompt string
+    """
+    # Build prompt for video description
+    prompt = f"""Generate a detailed video description for an advertising video based on this product:
+
+Product: {product.title}
+Description: {product.description}
+Price: ${product.price:.2f}
+Category: {product.category}
+Platform: {campaign_spec.platform}
+
+The video should:
+- Be 5 seconds long
+- Show the product in an appealing way
+- Match the advertising platform style ({campaign_spec.platform})
+- Variant {variant}: {"Focus on product features and benefits" if variant == "A" else "Create emotional connection and lifestyle appeal"}
+
+Describe the video motion, camera movement, and visual effects in detail. Keep it under 200 characters."""
+
+    # Try OpenAI first
+    if openai_client:
+        try:
+            response = openai_client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a professional video director creating advertising videos."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=100,
+                temperature=0.7
+            )
+            description = response.choices[0].message.content.strip()
+            logger.info(f"Generated video description using OpenAI for variant {variant}")
+            return description
+        except Exception as e:
+            logger.warning(f"OpenAI video description generation failed: {e}, falling back to template")
+    
+    # Fallback to template
+    if variant == "A":
+        description = f"Smooth 360-degree rotation of {product.title} on a clean white background, highlighting key features and premium quality"
+    else:
+        description = f"Dynamic lifestyle shot of {product.title} in use, with smooth camera movement and warm lighting creating aspirational mood"
+    
+    logger.info(f"Using template video description for variant {variant}")
+    return description
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(Exception)
+)
+def call_replicate_video(image_url: str, video_description: str) -> Optional[str]:
+    """
+    Generate video from image using Replicate Wan 2.5 model.
+    
+    Args:
+        image_url: URL of the input image (from DALL-E 3)
+        video_description: Text description/prompt for video generation
+        
+    Returns:
+        Video URL or None if generation fails
+    """
+    if not replicate_client:
+        logger.warning("Replicate client not initialized, video generation disabled")
+        return None
+    
+    try:
+        logger.info(f"Generating video with Replicate Wan 2.5...")
+        logger.info(f"Image URL: {image_url[:100]}...")
+        logger.info(f"Video description: {video_description}")
+        
+        # Run the model
+        output = replicate_client.run(
+            settings.REPLICATE_VIDEO_MODEL,
+            input={
+                "image": image_url,
+                "prompt": video_description,
+                "duration": 5,  # 5 seconds
+                "num_frames": 125,  # 25 fps * 5 seconds
+            }
+        )
+        
+        # The output is typically a FileOutput object or URL
+        if output:
+            video_url = str(output) if not isinstance(output, str) else output
+            logger.info(f"Video generated successfully: {video_url[:100]}...")
+            return video_url
+        else:
+            logger.error("Replicate returned empty output")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Replicate video generation failed: {e}")
+        raise
+
+
+def fallback_video_url(product) -> Optional[str]:
+    """
+    Generate fallback video URL (placeholder or None).
+    
+    Args:
+        product: Product object
+        
+    Returns:
+        Placeholder video URL or None
+    """
+    # For now, return None as we don't have a good placeholder video service
+    # In production, you might want to use a default product video
+    logger.warning(f"Using fallback (no video) for product {product.product_id}")
+    return None

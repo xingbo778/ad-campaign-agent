@@ -12,6 +12,7 @@ class ABConfig(BaseModel):
     variants_per_product: int = Field(default=2, ge=1, le=5, description="Number of variants per product (A, B, C, etc.)")
     max_creatives: int = Field(default=10, ge=1, le=50, description="Maximum total number of creatives to generate")
     enable_image_generation: bool = Field(default=True, description="Whether to attempt image generation via API")
+    enable_video_generation: bool = Field(default=False, description="Whether to attempt video generation from images via Replicate API")
 
 
 class GenerateCreativesRequest(BaseModel):

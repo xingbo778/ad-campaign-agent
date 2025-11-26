@@ -30,7 +30,10 @@ from .creative_utils import (
     run_creative_qa,
     fallback_text_generation,
     fallback_image_url,
-    get_policy_for_category
+    get_policy_for_category,
+    generate_video_description,
+    call_replicate_video,
+    fallback_video_url
 )
 
 # Configure unified logging
@@ -323,6 +326,35 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
                         "used_fallback": not image_generator_success
                     })
                     
+                    # Step 4d-2: Optionally generate video from image
+                    video_url = None
+                    enable_video_generation = ab_config.enable_video_generation
+                    
+                    if enable_video_generation and image_url and image_generator_success:
+                        logger.debug(f"Generating video for variant {variant}")
+                        
+                        # Generate video description
+                        video_description = generate_video_description(product, request.campaign_spec, variant)
+                        
+                        # Generate video from image
+                        try:
+                            video_url = call_replicate_video(image_url, video_description)
+                            video_generator_success = video_url is not None
+                        except Exception as e:
+                            logger.error(f"Video generation failed: {e}")
+                            video_url = fallback_video_url(product)
+                            video_generator_success = False
+                        
+                        debug_info["video_generation"] = debug_info.get("video_generation", [])
+                        debug_info["video_generation"].append({
+                            "product_id": product.product_id,
+                            "variant": variant,
+                            "video_description": video_description,
+                            "video_generator_success": video_generator_success,
+                            "final_video_url": video_url,
+                            "used_fallback": not video_generator_success
+                        })
+                    
                     # Step 4e: Assemble Creative object
                     creative = Creative(
                         creative_id=str(uuid.uuid4()),
@@ -332,6 +364,7 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
                         primary_text=primary_text,
                         headline=headline,
                         image_url=image_url,
+                        video_url=video_url,
                         style_profile=get_policy_for_category(product.category, policy),
                         ab_group="control" if variant == "A" else "variant"
                     )

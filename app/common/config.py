@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-1.5-flash"  # Text generation model
     GEMINI_IMAGE_MODEL: str = "gemini-1.5-flash"  # Image generation model
     
+    # Replicate settings (for video generation)
+    REPLICATE_API_TOKEN: Optional[str] = None
+    REPLICATE_VIDEO_MODEL: str = "wan-video/wan-2.5-i2v"  # Image to video model
+    
     # General settings
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
