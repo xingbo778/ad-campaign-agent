@@ -39,10 +39,14 @@ class Settings(BaseSettings):
     # See app.common.validators for validation utilities
     OPTIMIZER_SERVICE_URL: str = "http://localhost:8007"
     
-    # Orchestrator settings
+    # LLM settings (OpenAI is preferred, Gemini as fallback)
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4.1-mini"  # OpenAI model for text generation
+    
+    # Gemini settings (fallback if OpenAI not available)
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite"  # Text generation model
-    GEMINI_IMAGE_MODEL: str = "gemini-3-pro-image-preview"  # Image generation model
+    GEMINI_MODEL: str = "gemini-1.5-flash"  # Text generation model
+    GEMINI_IMAGE_MODEL: str = "gemini-1.5-flash"  # Image generation model
     
     # General settings
     LOG_LEVEL: str = "INFO"

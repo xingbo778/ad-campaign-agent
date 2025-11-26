@@ -24,6 +24,7 @@ from .creative_utils import (
     build_copy_prompt,
     build_image_prompt,
     call_gemini_text,
+    call_openai_image,
     call_gemini_image,
     parse_copy_response,
     run_creative_qa,
@@ -292,11 +293,19 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
                     # Step 4d: Optionally call image generator
                     if enable_image_generation:
                         logger.debug(f"Calling image generator for variant {variant}")
-                        image_url = call_gemini_image(image_description)
+                        
+                        # Try OpenAI DALL-E 3 first
+                        image_url = call_openai_image(image_description)
+                        
+                        # Fallback to Gemini if DALL-E fails
+                        if not image_url:
+                            logger.debug(f"DALL-E 3 failed, trying Gemini")
+                            image_url = call_gemini_image(image_description)
+                        
                         image_generator_success = image_url is not None and len(image_url) > 0
                         
                         if not image_url:
-                            logger.debug(f"Image generator returned no URL for variant {variant}, using fallback")
+                            logger.debug(f"All image generators failed for variant {variant}, using fallback")
                             image_url = fallback_image_url(product)
                     else:
                         logger.debug(f"Image generation disabled, using fallback")

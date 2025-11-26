@@ -5,7 +5,9 @@ Utility functions for creative generation.
 import os
 import yaml
 import logging
+import json
 import google.generativeai as genai
+from openai import OpenAI
 from typing import Dict, Optional, Tuple, List
 from tenacity import (
     retry,
@@ -18,20 +20,49 @@ from app.common.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize Gemini client
-gemini_api_key = os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY)
-gemini_image_api_key = os.getenv("GEMINI_IMAGE_API_KEY", None)
+# Initialize LLM clients
+# Try OpenAI first, then Gemini as fallback
+openai_client = None
+openai_image_client = None  # Separate client for DALL-E (uses native OpenAI API)
+gemini_model = None
+gemini_image_model = None
 
-if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
-    # Text generation model
-    gemini_model = genai.GenerativeModel(settings.GEMINI_MODEL)
-    # Image generation model (if different from text model)
-    gemini_image_model = genai.GenerativeModel(settings.GEMINI_IMAGE_MODEL) if hasattr(settings, 'GEMINI_IMAGE_MODEL') else gemini_model
-else:
-    gemini_model = None
-    gemini_image_model = None
-    logger.warning("GEMINI_API_KEY not set. LLM features will use fallback templates.")
+# Get API keys from environment
+openai_api_key = os.getenv("OPENAI_API_KEY", None)
+openai_real_key = os.getenv("OPENAI_REAL_KEY", None)  # For DALL-E 3
+
+if openai_api_key:
+    try:
+        # Client for text generation (uses Manus proxy)
+        openai_client = OpenAI()
+        logger.info("OpenAI client initialized successfully (text generation)")
+    except Exception as e:
+        logger.warning(f"Failed to initialize OpenAI text client: {e}")
+        openai_client = None
+
+if openai_real_key:
+    try:
+        # Separate client for image generation (uses native OpenAI API)
+        openai_image_client = OpenAI(
+            api_key=openai_real_key,
+            base_url="https://api.openai.com/v1"  # Use native OpenAI API
+        )
+        logger.info("OpenAI image client initialized successfully (DALL-E 3)")
+    except Exception as e:
+        logger.warning(f"Failed to initialize OpenAI image client: {e}")
+        openai_image_client = None
+
+if not openai_client:
+    # Fallback to Gemini
+    gemini_api_key = os.getenv("GEMINI_API_KEY", settings.GEMINI_API_KEY)
+    gemini_image_api_key = os.getenv("GEMINI_IMAGE_API_KEY", None)
+    
+    if gemini_api_key:
+        genai.configure(api_key=gemini_api_key)
+        gemini_model = genai.GenerativeModel(settings.GEMINI_MODEL)
+        gemini_image_model = genai.GenerativeModel(settings.GEMINI_IMAGE_MODEL) if hasattr(settings, 'GEMINI_IMAGE_MODEL') else gemini_model
+    else:
+        logger.warning("Neither OPENAI_API_KEY nor GEMINI_API_KEY set. LLM features will use fallback templates.")
 
 
 def load_creative_policy() -> Dict:
@@ -219,6 +250,42 @@ Return ONLY the image description text, no JSON, no markdown, no explanations, j
     retry=retry_if_exception_type((Exception,)),
     reraise=True
 )
+def _call_openai_api_internal(prompt: str, json_mode: bool = False) -> Optional[str]:
+    """
+    Internal function to call OpenAI API with retry logic.
+    
+    Args:
+        prompt: Prompt string
+        json_mode: Whether to request JSON output
+        
+    Returns:
+        Generated text or None if error
+    """
+    if not openai_client:
+        return None
+    
+    messages = [{"role": "user", "content": prompt}]
+    
+    kwargs = {
+        "model": "gpt-4.1-mini",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 500
+    }
+    
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    
+    response = openai_client.chat.completions.create(**kwargs)
+    return response.choices[0].message.content.strip() if response.choices else None
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    retry=retry_if_exception_type((Exception,)),
+    reraise=True
+)
 def _call_gemini_api_internal(prompt: str, response_schema: Optional[Dict] = None) -> Optional[str]:
     """
     Internal function to call Gemini API with retry logic and optional JSON Mode.
@@ -252,7 +319,7 @@ def _call_gemini_api_internal(prompt: str, response_schema: Optional[Dict] = Non
 
 def call_gemini_text(prompt: str, response_schema: Optional[Dict] = None) -> Optional[str]:
     """
-    Call Gemini API for text generation with exponential backoff retry.
+    Call LLM API (OpenAI or Gemini) for text generation with exponential backoff retry.
     
     This function implements retry logic to handle:
     - Rate limiting (429 errors)
@@ -270,22 +337,72 @@ def call_gemini_text(prompt: str, response_schema: Optional[Dict] = None) -> Opt
     """
     logger.debug(f"call_gemini_text called with prompt length: {len(prompt)}")
     
-    if not gemini_model:
-        logger.warning("Gemini model not available, using fallback")
-        logger.debug(f"gemini_model is None. gemini_api_key exists: {gemini_api_key is not None and len(gemini_api_key) > 0}")
+    # Try OpenAI first
+    if openai_client:
+        logger.debug(f"Calling OpenAI API with model: gpt-4.1-mini, JSON Mode: {response_schema is not None}")
+        try:
+            result = _call_openai_api_internal(prompt, json_mode=(response_schema is not None))
+            if result:
+                logger.debug(f"OpenAI API call successful, response length: {len(result)}")
+                return result
+        except RetryError as e:
+            logger.error(f"OpenAI API call failed after retries: {e.last_attempt.exception()}")
+        except Exception as e:
+            logger.error(f"Error calling OpenAI API: {e}", exc_info=True)
+    
+    # Fallback to Gemini
+    if gemini_model:
+        logger.debug(f"Calling Gemini API with model: {settings.GEMINI_MODEL}, JSON Mode: {response_schema is not None}")
+        try:
+            result = _call_gemini_api_internal(prompt, response_schema=response_schema)
+            logger.debug(f"Gemini API call successful, response length: {len(result) if result else 0}")
+            return result
+        except RetryError as e:
+            logger.error(f"Gemini API call failed after retries: {e.last_attempt.exception()}")
+        except Exception as e:
+            logger.error(f"Error calling Gemini API: {e}", exc_info=True)
+    
+    logger.warning("No LLM available, using fallback")
+    return None
+
+
+def call_openai_image(image_prompt: str) -> Optional[str]:
+    """
+    Call OpenAI DALL-E 3 for image generation using native OpenAI API.
+    
+    Args:
+        image_prompt: Image description prompt
+        
+    Returns:
+        Image URL or None if error
+    """
+    if not openai_image_client:
+        logger.debug("OpenAI image client not available, skipping image generation")
         return None
     
-    logger.debug(f"Calling Gemini API with model: {settings.GEMINI_MODEL}, JSON Mode: {response_schema is not None}")
     try:
-        result = _call_gemini_api_internal(prompt, response_schema=response_schema)
-        logger.debug(f"Gemini API call successful, response length: {len(result) if result else 0}")
-        return result
-    except RetryError as e:
-        logger.error(f"Gemini API call failed after retries: {e.last_attempt.exception()}")
-        return None
+        logger.info("Calling OpenAI DALL-E 3 for image generation (native API)")
+        
+        # DALL-E 3 has a 4000 character limit for prompts
+        if len(image_prompt) > 4000:
+            image_prompt = image_prompt[:3997] + "..."
+            logger.warning(f"Image prompt truncated to 4000 characters")
+        
+        response = openai_image_client.images.generate(
+            model="dall-e-3",
+            prompt=image_prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1
+        )
+        
+        image_url = response.data[0].url
+        logger.info(f"✅ DALL-E 3 image generated successfully!")
+        logger.info(f"Image URL: {image_url}")
+        return image_url
+        
     except Exception as e:
-        logger.error(f"Error calling Gemini API: {e}", exc_info=True)
-        logger.debug(f"Exception type: {type(e).__name__}, Exception message: {str(e)}")
+        logger.error(f"❌ Error calling DALL-E 3: {e}")
         return None
 
 
