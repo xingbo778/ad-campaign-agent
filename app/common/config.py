@@ -40,13 +40,15 @@ class Settings(BaseSettings):
     OPTIMIZER_SERVICE_URL: str = "http://localhost:8007"
     
     # LLM settings (OpenAI is preferred, Gemini as fallback)
-    OPENAI_API_KEY: Optional[str] = None
+    # Unified OpenAI API key for both text and image generation (native OpenAI API)
+    OPENAI_REAL_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4.1-mini"  # OpenAI model for text generation
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"  # OpenAI API base URL
     
     # Gemini settings (fallback if OpenAI not available)
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-1.5-flash"  # Text generation model
-    GEMINI_IMAGE_MODEL: str = "gemini-1.5-flash"  # Image generation model
+    GEMINI_MODEL: str = "gemini-2.0-flash-lite"  # Text generation model
+    GEMINI_IMAGE_MODEL: str = "gemini-3-pro-image-preview"  # Image generation model
     
     # Replicate settings (for video generation)
     REPLICATE_API_TOKEN: Optional[str] = None

@@ -29,29 +29,22 @@ gemini_model = None
 gemini_image_model = None
 replicate_client = None  # For video generation
 
-# Get API keys from environment
-openai_api_key = os.getenv("OPENAI_API_KEY", None)
-openai_real_key = os.getenv("OPENAI_REAL_KEY", None)  # For DALL-E 3
-
-if openai_api_key:
-    try:
-        # Client for text generation (uses Manus proxy)
-        openai_client = OpenAI()
-        logger.info("OpenAI client initialized successfully (text generation)")
-    except Exception as e:
-        logger.warning(f"Failed to initialize OpenAI text client: {e}")
-        openai_client = None
+# Get API keys from environment (unified to use OPENAI_REAL_KEY)
+openai_real_key = os.getenv("OPENAI_REAL_KEY", settings.OPENAI_REAL_KEY)
 
 if openai_real_key:
     try:
-        # Separate client for image generation (uses native OpenAI API)
-        openai_image_client = OpenAI(
+        # Unified client for both text and image generation (uses native OpenAI API)
+        openai_client = OpenAI(
             api_key=openai_real_key,
-            base_url="https://api.openai.com/v1"  # Use native OpenAI API
+            base_url=settings.OPENAI_BASE_URL
         )
-        logger.info("OpenAI image client initialized successfully (DALL-E 3)")
+        # Same client for image generation
+        openai_image_client = openai_client
+        logger.info("OpenAI client initialized successfully (text and image generation)")
     except Exception as e:
-        logger.warning(f"Failed to initialize OpenAI image client: {e}")
+        logger.warning(f"Failed to initialize OpenAI client: {e}")
+        openai_client = None
         openai_image_client = None
 
 if not openai_client:
@@ -64,7 +57,7 @@ if not openai_client:
         gemini_model = genai.GenerativeModel(settings.GEMINI_MODEL)
         gemini_image_model = genai.GenerativeModel(settings.GEMINI_IMAGE_MODEL) if hasattr(settings, 'GEMINI_IMAGE_MODEL') else gemini_model
     else:
-        logger.warning("Neither OPENAI_API_KEY nor GEMINI_API_KEY set. LLM features will use fallback templates.")
+        logger.warning("Neither OPENAI_REAL_KEY nor GEMINI_API_KEY set. LLM features will use fallback templates.")
 
 # Initialize Replicate client for video generation
 replicate_api_token = os.getenv("REPLICATE_API_TOKEN", settings.REPLICATE_API_TOKEN)
@@ -969,73 +962,88 @@ def concatenate_videos(video_urls: List[str], output_path: str, request_id: str 
     import subprocess
     import tempfile
     import os
+    import shutil
+    import contextlib
     
     logger.info(f"[{request_id}] - Concatenating {len(video_urls)} video segments")
     
-    try:
-        # Create temporary directory for downloaded videos
-        temp_dir = tempfile.mkdtemp()
-        video_files = []
-        
-        # Download all videos
-        for i, url in enumerate(video_urls):
-            video_file = os.path.join(temp_dir, f"segment_{i}.mp4")
-            if download_video(url, video_file):
-                video_files.append(video_file)
-            else:
-                logger.error(f"[{request_id}] - Failed to download segment {i}")
-                return None
-        
-        if len(video_files) != len(video_urls):
-            logger.error(f"[{request_id}] - Not all videos downloaded successfully")
-            return None
-        
-        # Create concat file for FFmpeg
-        concat_file = os.path.join(temp_dir, "concat_list.txt")
-        with open(concat_file, "w") as f:
-            for video_file in video_files:
-                f.write(f"file '{video_file}'\n")
-        
-        # Run FFmpeg to concatenate videos
-        cmd = [
-            "ffmpeg",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concat_file,
-            "-c", "copy",
-            "-y",  # Overwrite output file
-            output_path
-        ]
-        
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-        
-        if result.returncode != 0:
-            logger.error(f"[{request_id}] - FFmpeg error: {result.stderr}")
-            return None
-        
-        logger.info(f"[{request_id}] - Videos concatenated successfully: {output_path}")
-        
-        # Clean up temporary files
-        for video_file in video_files:
-            try:
-                os.remove(video_file)
-            except:
-                pass
+    # Check if FFmpeg is available
+    if not shutil.which("ffmpeg"):
+        logger.error(f"[{request_id}] - FFmpeg not found. Please install FFmpeg to enable video concatenation.")
+        logger.error(f"[{request_id}] - Installation: brew install ffmpeg (macOS) or apt-get install ffmpeg (Linux)")
+        return None
+    
+    @contextlib.contextmanager
+    def temp_video_dir():
+        """Context manager for temporary video directory with automatic cleanup."""
+        temp_dir = tempfile.mkdtemp(prefix=f"video_concat_{request_id}_")
         try:
-            os.remove(concat_file)
-            os.rmdir(temp_dir)
-        except:
-            pass
+            yield temp_dir
+        finally:
+            # Clean up temporary directory
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.debug(f"[{request_id}] - Cleaned up temporary directory: {temp_dir}")
+            except Exception as e:
+                logger.warning(f"[{request_id}] - Failed to clean up temp directory {temp_dir}: {e}")
+    
+    try:
+        with temp_video_dir() as temp_dir:
+            video_files = []
+            
+            # Download all videos
+            for i, url in enumerate(video_urls):
+                video_file = os.path.join(temp_dir, f"segment_{i}.mp4")
+                if download_video(url, video_file):
+                    video_files.append(video_file)
+                else:
+                    logger.error(f"[{request_id}] - Failed to download segment {i} from {url}")
+                    return None
+            
+            if len(video_files) != len(video_urls):
+                logger.error(f"[{request_id}] - Not all videos downloaded successfully")
+                return None
+            
+            # Create concat file for FFmpeg
+            concat_file = os.path.join(temp_dir, "concat_list.txt")
+            with open(concat_file, "w") as f:
+                for video_file in video_files:
+                    # Escape single quotes in file path for FFmpeg
+                    escaped_path = video_file.replace("'", "'\\''")
+                    f.write(f"file '{escaped_path}'\n")
+            
+            # Run FFmpeg to concatenate videos
+            cmd = [
+                "ffmpeg",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", concat_file,
+                "-c", "copy",
+                "-y",  # Overwrite output file
+                output_path
+            ]
+            
+            logger.debug(f"[{request_id}] - Running FFmpeg command: {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            if result.returncode != 0:
+                logger.error(f"[{request_id}] - FFmpeg error: {result.stderr}")
+                logger.error(f"[{request_id}] - FFmpeg stdout: {result.stdout}")
+                return None
+            
+            logger.info(f"[{request_id}] - Videos concatenated successfully: {output_path}")
+            return output_path
         
-        return output_path
-        
+    except subprocess.TimeoutExpired:
+        logger.error(f"[{request_id}] - FFmpeg timeout after 120 seconds")
+        return None
     except Exception as e:
-        logger.error(f"[{request_id}] - Error concatenating videos: {e}")
+        logger.error(f"[{request_id}] - Error concatenating videos: {e}", exc_info=True)
         return None
 
 
