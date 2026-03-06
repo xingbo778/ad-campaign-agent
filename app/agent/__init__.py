@@ -7,7 +7,8 @@ function calling + custom ReAct loop (~500 lines total).
 
 from .agent import Agent, AgentResult, AgentStep, AgentMaxStepsError
 from .tool import BaseTool, ToolRegistry
-from .llm import LLMProvider, GeminiProvider, OpenAIProvider
+from .llm import LLMProvider, GeminiProvider, OpenAIProvider, FallbackProvider
+from .metrics import MetricsCollector, metrics
 
 __all__ = [
     "Agent",
@@ -19,4 +20,7 @@ __all__ = [
     "LLMProvider",
     "GeminiProvider",
     "OpenAIProvider",
+    "FallbackProvider",
+    "MetricsCollector",
+    "metrics",
 ]
