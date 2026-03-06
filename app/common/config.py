@@ -54,10 +54,22 @@ class Settings(BaseSettings):
     REPLICATE_API_TOKEN: Optional[str] = None
     REPLICATE_VIDEO_MODEL: str = "wan-video/wan-2.5-i2v"  # Image to video model
     
+    # HTTP client settings
+    SERVICE_TIMEOUT: float = 30.0  # HTTP timeout for service-to-service calls
+    HEALTH_CHECK_TIMEOUT: float = 5.0  # HTTP timeout for health checks
+
+    # LLM generation defaults
+    LLM_TEMPERATURE: float = 0.7
+    LLM_MAX_TOKENS: int = 500
+    LLM_INTENT_TEMPERATURE: float = 0.3  # Lower temperature for intent parsing
+
     # General settings
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
-    
+
+    # CORS settings (comma-separated origins for production)
+    CORS_ALLOWED_ORIGINS: str = ""
+
     # Database settings
     DATABASE_URL: Optional[str] = None
     

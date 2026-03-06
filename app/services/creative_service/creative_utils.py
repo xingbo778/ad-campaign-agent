@@ -4,7 +4,6 @@ Utility functions for creative generation.
 
 import os
 import yaml
-import logging
 import json
 import google.generativeai as genai
 from openai import OpenAI
@@ -19,7 +18,9 @@ from tenacity import (
 )
 from app.common.config import settings
 
-logger = logging.getLogger(__name__)
+from app.common.middleware import get_logger
+
+logger = get_logger(__name__)
 
 # Initialize LLM clients
 # Try OpenAI first, then Gemini as fallback

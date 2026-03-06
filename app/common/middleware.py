@@ -8,6 +8,7 @@ This module provides:
 """
 
 import logging
+import os
 import uuid
 import time
 from typing import Optional
@@ -116,10 +117,8 @@ def get_cors_middleware_class(allowed_origins: Optional[list] = None):
             allowed_origins = ["*"]
         else:
             # In production, specify allowed origins
-            allowed_origins = [
-                "https://yourdomain.com",
-                "https://www.yourdomain.com"
-            ]
+            cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+            allowed_origins = [o.strip() for o in cors_origins.split(",") if o.strip()] if cors_origins else []
     
     def create_cors_middleware(app):
         """Factory function to create CORS middleware"""

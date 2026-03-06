@@ -125,18 +125,11 @@ async def generate_creatives(request: GenerateCreativesRequest) -> Union[Generat
         
         debug_info = {
             "llm_config": {
-                "gemini_api_key_set": gemini_api_key is not None and len(gemini_api_key) > 0,
-                "gemini_api_key_length": len(gemini_api_key) if gemini_api_key else 0,
-                "gemini_api_key_preview": f"{gemini_api_key[:10]}..." if gemini_api_key and len(gemini_api_key) > 10 else "not_set",
+                "gemini_api_key_set": bool(gemini_api_key),
                 "gemini_model": gemini_model_name,
                 "gemini_model_initialized": gemini_model_initialized,
                 "gemini_image_model": gemini_image_model_name,
                 "gemini_image_model_initialized": gemini_image_model_initialized,
-                "gemini_image_api_key_set": os.getenv("GEMINI_IMAGE_API_KEY") is not None,
-                "environment_variables": {
-                    "GEMINI_API_KEY_from_env": os.getenv("GEMINI_API_KEY") is not None,
-                    "GEMINI_API_KEY_from_settings": settings.GEMINI_API_KEY is not None if hasattr(settings, 'GEMINI_API_KEY') else False
-                }
             },
             "request_info": {
                 "num_products": len(request.products),

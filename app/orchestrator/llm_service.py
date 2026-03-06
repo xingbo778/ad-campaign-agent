@@ -77,7 +77,7 @@ When parsing user input, extract these fields and return ONLY valid JSON."""
 # Models
 class NaturalLanguageRequest(BaseModel):
     """自然语言请求"""
-    user_request: str = Field(..., description="Natural language description of the campaign needs")
+    user_request: str = Field(..., description="Natural language description of the campaign needs", min_length=1, max_length=5000)
     
 
 class CampaignSpec(BaseModel):
@@ -200,7 +200,7 @@ def generate_summary(campaign_spec: CampaignSpec, results: Dict[str, Any]) -> st
         summary_prompt = f"""Based on the campaign creation results, generate a concise, human-readable summary.
 
 Campaign Spec:
-{json.dumps(campaign_spec.dict(), indent=2)}
+{json.dumps(campaign_spec.model_dump(), indent=2)}
 
 Results:
 - Products selected: {len(results.get('products', []))}
@@ -406,7 +406,7 @@ async def create_campaign_natural_language(request: NaturalLanguageRequest):
             campaigns=[campaign_result],
             errors=[],
             summary=summary,
-            campaign_spec=campaign_spec.dict()
+            campaign_spec=campaign_spec.model_dump()
         )
         
     except httpx.HTTPError as e:
