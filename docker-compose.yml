@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  product_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - PRODUCT_SERVICE_PORT=8001
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.product_service.main:app --host 0.0.0.0 --port 8001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  creative_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - CREATIVE_SERVICE_PORT=8002
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.creative_service.main:app --host 0.0.0.0 --port 8002
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  strategy_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - STRATEGY_SERVICE_PORT=8003
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.strategy_service.main:app --host 0.0.0.0 --port 8003
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  meta_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - META_SERVICE_PORT=8004
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.meta_service.main:app --host 0.0.0.0 --port 8004
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  logs_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - LOGS_SERVICE_PORT=8005
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.logs_service.main:app --host 0.0.0.0 --port 8005
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  schema_validator_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - SCHEMA_VALIDATOR_SERVICE_PORT=8006
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.schema_validator_service.main:app --host 0.0.0.0 --port 8006
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  optimizer_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - OPTIMIZER_SERVICE_PORT=8007
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.optimizer_service.main:app --host 0.0.0.0 --port 8007
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  amp_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      - AMP_SERVICE_PORT=8008
+      - LOG_LEVEL=INFO
+    command: uvicorn app.services.amp_service.main:app --host 0.0.0.0 --port 8008
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+

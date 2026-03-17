@@ -1,0 +1,253 @@
+# Google ADK Agent Configuration for Ad Campaign Orchestrator
+# This config defines the agent and its available tools (MCP services)
+# Supports dual-channel campaigns: Human (Meta) + Agent (AMP)
+
+name: ad_campaign_orchestrator
+description: "Orchestrates end-to-end ad campaign creation and optimization across human channels (Meta) and AI agent channels (AMP)"
+
+# Agent capabilities
+capabilities:
+  - text_generation
+  - tool_use
+  - multi_step_reasoning
+
+# System prompt (reference to agent_prompt.md)
+system_prompt: |
+  You are an expert ad campaign orchestration agent. Your role is to manage
+  the complete lifecycle of ad campaigns from product selection to deployment
+  and optimization. You support dual-channel campaigns: human channels (Meta)
+  and AI agent channels (AMP - Agent Marketing Platform). Use the available
+  tools (MCP services) to accomplish tasks.
+
+# Tools (MCP Services) available to the agent
+tools:
+  - name: product_service_select_products
+    description: "Select and group products based on campaign requirements"
+    endpoint: "http://localhost:8001/select_products"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        campaign_objective:
+          type: string
+          enum: [awareness, conversions, engagement]
+        target_audience:
+          type: object
+          properties:
+            demographics:
+              type: object
+            interests:
+              type: array
+              items:
+                type: string
+        budget_range:
+          type: object
+          properties:
+            min:
+              type: number
+            max:
+              type: number
+      required:
+        - campaign_objective
+        - target_audience
+
+  - name: creative_service_generate_creatives
+    description: "Generate human-facing ad creatives (text, images, videos) for Meta campaigns"
+    endpoint: "http://localhost:8002/generate_creatives"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+        campaign_objective:
+          type: string
+        target_audience:
+          type: object
+        platform:
+          type: string
+          enum: [facebook, instagram, meta]
+      required:
+        - products
+        - campaign_objective
+        - platform
+
+  - name: creative_service_generate_agent_creatives
+    description: "Generate agent-facing creative materials (structured product schemas, verified claims, sandbox APIs, agent incentives) for the AMP channel"
+    endpoint: "http://localhost:8002/generate_agent_creatives"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+          description: "Products to create agent materials for"
+        campaign_objective:
+          type: string
+          description: "Campaign objective"
+        target_agent_categories:
+          type: array
+          items:
+            type: string
+          description: "Types of agents to target: shopping_assistant, saas_advisor, price_comparison, personal_shopper"
+      required:
+        - products
+        - campaign_objective
+
+  - name: strategy_service_generate_strategy
+    description: "Generate comprehensive ad strategy including platform-specific approaches and optional AMP agent channel strategy"
+    endpoint: "http://localhost:8003/generate_strategy"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        creatives:
+          type: array
+          items:
+            type: object
+        campaign_objective:
+          type: string
+        budget:
+          type: number
+        target_audience:
+          type: object
+        include_agent_channel:
+          type: boolean
+          default: false
+          description: "Set to true to include AMP agent channel in strategy with budget split"
+      required:
+        - creatives
+        - campaign_objective
+        - budget
+
+  - name: meta_service_create_campaign
+    description: "Create and deploy campaigns to Meta platforms (human channel)"
+    endpoint: "http://localhost:8004/create_campaign"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        strategy:
+          type: object
+        creatives:
+          type: array
+          items:
+            type: object
+        budget:
+          type: number
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+      required:
+        - strategy
+        - creatives
+        - budget
+
+  - name: amp_service_publish_to_amp
+    description: "Publish structured product data to the Agent Marketing Platform (AMP) for AI agent discovery and recommendation"
+    endpoint: "http://localhost:8008/publish_to_amp"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        agent_creatives:
+          type: array
+          items:
+            type: object
+          description: "Agent-facing creative materials to publish"
+        budget:
+          type: number
+          description: "AMP channel budget in USD"
+        bidding_strategy:
+          type: string
+          enum: [cost_per_recommendation, cost_per_query_match, cost_per_action, flat_rate]
+          default: cost_per_recommendation
+          description: "AMP bidding model"
+        target_agent_categories:
+          type: array
+          items:
+            type: string
+          description: "Categories of agents to target"
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+      required:
+        - agent_creatives
+        - budget
+
+  - name: logs_service_append_event
+    description: "Log events and operations for audit trails"
+    endpoint: "http://localhost:8005/append_event"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        event_type:
+          type: string
+        service:
+          type: string
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - event_type
+        - service
+
+  - name: schema_validator_service_validate
+    description: "Validate campaign data against schema requirements"
+    endpoint: "http://localhost:8006/validate"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        schema_type:
+          type: string
+          enum: [campaign, creative, strategy, product, agent_creative, amp_listing]
+        data:
+          type: object
+      required:
+        - schema_type
+        - data
+
+  - name: optimizer_service_summarize_recent_runs
+    description: "Analyze recent campaign runs and provide optimization suggestions across human and agent channels"
+    endpoint: "http://localhost:8007/summarize_recent_runs"
+    method: POST
+    input_schema:
+      type: object
+      properties:
+        campaign_ids:
+          type: array
+          items:
+            type: string
+        lookback_days:
+          type: integer
+          default: 30
+        include_agent_metrics:
+          type: boolean
+          default: false
+          description: "Set to true to include AMP agent channel metrics (query matches, recommendations, CPR)"
+      required:
+        - campaign_ids
+
+# Model configuration (Gemini 3 Pro)
+model:
+  name: gemini-3-pro
+  temperature: 0.7
+  max_tokens: 8192
+
+# Response format
+response_format:
+  type: json
